@@ -904,7 +904,25 @@ tbody tr:last-child td {
     color: var(--primary-color);
     font-size: 1rem;
 }
+.cart-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
 
+.qty-btn {
+    background: var(--background-color);
+    color: var(--text-dark);
+    border: 1px solid var(--border-color);
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    box-shadow: none;
+}
+.qty-btn:hover {
+    background: var(--primary-color);
+    color: white;
+}
 #cart-total { 
     margin-top: auto;
     padding-top: 1.5rem;
@@ -1053,6 +1071,27 @@ tbody tr:last-child td {
     font-weight: 700;
 }
 
+.pos-modal-details-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    background: var(--background-color);
+    padding: 1rem;
+    border-radius: var(--border-radius-sm);
+}
+.pos-modal-detail {
+    text-align: center;
+}
+.pos-modal-detail .label {
+    font-size: 0.8rem;
+    color: var(--text-light);
+    text-transform: uppercase;
+}
+.pos-modal-detail .value {
+    font-size: 1.25rem;
+    font-weight: 700;
+}
 /* UTILITIES */
 .hidden { 
     display: none !important; 
@@ -1309,11 +1348,42 @@ tbody tr:last-child td {
     </main>
 </div>
 
-<!-- VARIATION SELECTION MODAL -->
-<div id="variation-modal" class="modal hidden">
-    <div class="modal-content" style="max-width: 500px;">
-        <div class="modal-header"><h3><i class="fas fa-layer-group"></i> Select Variation</h3><button class="close-modal"><i class="fas fa-times"></i></button></div>
-        <div class="modal-body"><div id="variation-options" style="display: flex; flex-direction: column; gap: 0.75rem;"></div></div>
+<!-- POS PRODUCT DETAIL MODAL (Replaces old variation-modal) -->
+<div id="pos-product-modal" class="modal hidden">
+    <div class="modal-content" style="max-width: 550px;">
+        <div class="modal-header">
+            <h3 id="pos-modal-product-name"><i class="fas fa-tshirt"></i> Product Details</h3>
+            <button class="close-modal"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label><i class="fas fa-layer-group"></i> Select Variation</label>
+                <select id="pos-modal-variation-select"></select>
+            </div>
+            <div id="pos-modal-details-container" class="hidden">
+                <div class="pos-modal-details-grid">
+                    <div class="pos-modal-detail"><div class="label">Stock</div><div class="value" id="pos-modal-stock">0</div></div>
+                    <div class="pos-modal-detail"><div class="label">Cost Price</div><div class="value" id="pos-modal-cost-price">$0.00</div></div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1.5rem;">
+                    <div class="form-group">
+                        <label><i class="fas fa-dollar-sign"></i> Sale Price</label>
+                        <input type="number" id="pos-modal-sale-price" step="0.01" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-boxes"></i> Quantity</label>
+                        <input type="number" id="pos-modal-quantity" min="1" value="1">
+                    </div>
+                </div>
+            </div>
+            <div id="pos-modal-no-stock" class="empty-state hidden" style="padding: 2rem 0;">
+                <p>This product has no variations in stock.</p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="close-modal secondary-btn">Cancel</button>
+            <button type="button" id="pos-modal-add-to-cart-btn" disabled><i class="fas fa-cart-plus"></i> Add to Cart</button>
+        </div>
     </div>
 </div>
 
@@ -1327,6 +1397,7 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let appState = { categories: [], suppliers: [], products: [], sales: [], cart: [], lowStockThreshold: 10, currentPage: 1, itemsPerPage: 10 };
 let salesChart = null;
 let categoryChart = null;
+let currentModalProduct = null;
 
 document.addEventListener('DOMContentLoaded', init);
 
@@ -1334,13 +1405,13 @@ document.addEventListener('DOMContentLoaded', init);
 const showToast = (message, type = 'success') => {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'error' ? 'exclamation-circle' : 'info-circle'}"></i><div class="toast-message">${message}</div>`;
+    toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i><div class="toast-message">${message}</div>`;
     document.body.appendChild(toast);
     setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 500); }, 4000);
 };
 const formatCurrency = (amount) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
 const formatDate = (dateString) => new Date(dateString).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-const calculateProfitMargin = (cost, sale) => (!cost || !sale || sale === 0) ? '0.00' : (((sale - cost) / sale) * 100).toFixed(2);
+const calculateProfitMargin = (cost, sale) => (!cost || !sale || sale <= 0) ? '0.00' : (((sale - cost) / sale) * 100).toFixed(2);
 const getTotalStock = (product) => product.variations.reduce((sum, v) => sum + (v.quantity || 0), 0);
 
 // --- 3. VIEW SWITCHING ---
@@ -1373,7 +1444,7 @@ async function fetchInitialData() {
             supabaseClient.from('categories').select('*').order('name'),
             supabaseClient.from('suppliers').select('*').order('name'),
             supabaseClient.from('products').select('*, categories(name), suppliers(name)').order('created_at', { ascending: false }),
-            supabaseClient.from('sales').select('*, sale_items(*, products(cost_price))').order('created_at', { ascending: false }).limit(100)
+            supabaseClient.from('sales').select('*, sale_items(*, products(name, cost_price))').order('created_at', { ascending: false }).limit(100)
         ]);
         if (catRes.error) throw catRes.error; if (supRes.error) throw supRes.error;
         if (prodRes.error) throw prodRes.error; if (salesRes.error) throw salesRes.error;
@@ -1429,8 +1500,13 @@ function setupEventListeners() {
     document.getElementById('suppliers-list-container').addEventListener('click', handleSupplierActions);
     document.getElementById('stock-table-container').addEventListener('click', handleStockTableActions);
     document.getElementById('pos-product-grid').addEventListener('click', handlePOSProductClick);
-    document.getElementById('cart-items').addEventListener('click', handleCartItemRemove);
-    document.querySelector('#variation-modal .close-modal').addEventListener('click', closeVariationModal);
+    document.getElementById('cart-items').addEventListener('click', handleCartActions);
+
+    // POS Modal
+    document.querySelector('#pos-product-modal .close-modal').addEventListener('click', closePOSProductModal);
+    document.getElementById('pos-modal-variation-select').addEventListener('change', updatePOSModalDetails);
+    document.getElementById('pos-modal-add-to-cart-btn').addEventListener('click', handleAddToCart);
+
 
     // Filters
     ['stock-search', 'stock-category-filter', 'stock-supplier-filter', 'stock-status-filter', 'pos-search', 'pos-category-filter'].forEach(id => {
@@ -1471,7 +1547,7 @@ function renderDashboard() {
         lowStockWarning.classList.add('hidden');
     }
     const recentSalesContainer = document.getElementById('recent-sales-container');
-    recentSalesContainer.innerHTML = appState.sales.length > 0 ? `<table><thead><tr><th>Sale ID</th><th>Date</th><th>Items</th><th>Total</th></tr></thead><tbody>${appState.sales.slice(0, 5).map(s => `<tr><td>#${s.id}</td><td>${formatDate(s.created_at)}</td><td>${s.sale_items.length}</td><td>${formatCurrency(s.total_amount)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty-state" style="padding: 2rem;"><p>No sales recorded yet.</p></div>';
+    recentSalesContainer.innerHTML = appState.sales.length > 0 ? `<table><thead><tr><th>Sale ID</th><th>Date</th><th>Items</th><th>Total</th></tr></thead><tbody>${appState.sales.slice(0, 5).map(s => `<tr><td>#${s.id}</td><td>${formatDate(s.created_at)}</td><td>${s.sale_items.reduce((sum, i) => sum + i.quantity_sold, 0)}</td><td>${formatCurrency(s.total_amount)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty-state" style="padding: 2rem;"><p>No sales recorded yet.</p></div>';
     renderDashboardCharts();
 }
 
@@ -1491,9 +1567,14 @@ function renderDashboardCharts() {
 function renderStockBalance() {
     ['stock-category-filter', 'pos-category-filter'].forEach(id => {
         const filter = document.getElementById(id);
-        if (filter.options.length <= 1) filter.innerHTML = '<option value="">All Categories</option>' + appState.categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        const currentVal = filter.value;
+        filter.innerHTML = '<option value="">All Categories</option>' + appState.categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        filter.value = currentVal;
     });
-    if (document.getElementById('stock-supplier-filter').options.length <= 1) document.getElementById('stock-supplier-filter').innerHTML = '<option value="">All Suppliers</option>' + appState.suppliers.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    const supplierFilter = document.getElementById('stock-supplier-filter');
+    const currentSupVal = supplierFilter.value;
+    supplierFilter.innerHTML = '<option value="">All Suppliers</option>' + appState.suppliers.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    supplierFilter.value = currentSupVal;
 
     const searchTerm = document.getElementById('stock-search').value.toLowerCase();
     const categoryId = document.getElementById('stock-category-filter').value;
@@ -1555,12 +1636,23 @@ function renderPOSProductGrid() {
 function renderCart() {
     const cartItemsEl = document.getElementById('cart-items');
     const processBtn = document.getElementById('process-sale-btn');
-    const total = appState.cart.reduce((sum, item) => sum + item.sale_price, 0);
+    const total = appState.cart.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
     if (appState.cart.length === 0) {
-        cartItemsEl.innerHTML = '<li style="background:transparent; border:none; justify-content:center;">Cart is empty</li>';
+        cartItemsEl.innerHTML = '<li style="background:transparent; border:none; justify-content:center; color: var(--text-light);">Cart is empty</li>';
         processBtn.disabled = true;
     } else {
-        cartItemsEl.innerHTML = appState.cart.map(item => `<li><div class="cart-item-info"><div class="cart-item-name">${item.name}</div><div class="cart-item-details">${item.variation.size} / ${item.variation.color}</div></div><div class="cart-item-price">${formatCurrency(item.sale_price)}</div><button class="delete-btn remove-cart-item-btn" data-cart-id="${item.cartId}" style="padding: 0.2rem 0.5rem;"><i class="fas fa-times"></i></button></li>`).join('');
+        cartItemsEl.innerHTML = appState.cart.map(item => `
+            <li>
+                <div class="cart-item-info">
+                    <div class="cart-item-name">${item.name}</div>
+                    <div class="cart-item-details">${item.variation.size} / ${item.variation.color}</div>
+                    <div class="cart-item-price">${item.quantity} &times; ${formatCurrency(item.unit_price)}</div>
+                </div>
+                <div class="cart-item-actions">
+                    <button class="qty-btn" data-cart-id="${item.cartId}" data-action="decrease"><i class="fas fa-minus"></i></button>
+                    <button class="delete-btn" data-cart-id="${item.cartId}" data-action="remove" style="padding: 0.2rem 0.5rem;"><i class="fas fa-times"></i></button>
+                </div>
+            </li>`).join('');
         processBtn.disabled = false;
     }
     document.getElementById('cart-total').textContent = `Total: ${formatCurrency(total)}`;
@@ -1725,66 +1817,185 @@ function handlePOSProductClick(e) {
     const card = e.target.closest('.product-card');
     if (!card) return;
     const product = appState.products.find(p => p.id == card.dataset.id);
-    openVariationModal(product);
+    openPOSProductModal(product);
 }
 
-function openVariationModal(product) {
-    const modal = document.getElementById('variation-modal');
-    const optionsContainer = document.getElementById('variation-options');
-    optionsContainer.innerHTML = product.variations.filter(v => v.quantity > 0).map(variation => 
-        `<button class="item" style="cursor: pointer;" onclick="addToCartById(${product.id}, '${variation.size}', '${variation.color}')">
-            <span>${variation.size} / ${variation.color}</span> <span class="badge info">Stock: ${variation.quantity}</span>
-        </button>`
-    ).join('');
-    if(optionsContainer.innerHTML === '') optionsContainer.innerHTML = '<p>No variations in stock.</p>';
+function openPOSProductModal(product) {
+    currentModalProduct = product;
+    const modal = document.getElementById('pos-product-modal');
+    const select = document.getElementById('pos-modal-variation-select');
+    const detailsContainer = document.getElementById('pos-modal-details-container');
+    const noStockEl = document.getElementById('pos-modal-no-stock');
+    
+    document.getElementById('pos-modal-product-name').innerHTML = `<i class="fas fa-tshirt"></i> ${product.name}`;
+
+    const inStockVariations = product.variations.filter(v => v.quantity > 0);
+
+    if (inStockVariations.length === 0) {
+        select.innerHTML = '';
+        detailsContainer.classList.add('hidden');
+        noStockEl.classList.remove('hidden');
+    } else {
+        select.innerHTML = '<option value="">Select a variation...</option>' + inStockVariations.map((v, index) => 
+            `<option value="${index}">${v.size} / ${v.color}</option>`
+        ).join('');
+        detailsContainer.classList.add('hidden');
+        noStockEl.classList.add('hidden');
+    }
+
     modal.classList.remove('hidden');
+    updatePOSModalDetails(); // To set initial state
 }
 
-window.addToCartById = (productId, size, color) => {
-    const product = appState.products.find(p => p.id == productId);
-    const variation = product.variations.find(v => v.size === size && v.color === color);
-    if(product && variation) {
-        appState.cart.push({ cartId: Date.now(), productId: product.id, name: product.name, sale_price: product.sale_price, variation: variation });
-        renderCart();
-        showToast(`${product.name} added to cart.`, 'success');
-        closeVariationModal();
+function updatePOSModalDetails() {
+    const product = currentModalProduct;
+    if (!product) return;
+
+    const select = document.getElementById('pos-modal-variation-select');
+    const selectedIndex = select.value;
+    const detailsContainer = document.getElementById('pos-modal-details-container');
+    const addToCartBtn = document.getElementById('pos-modal-add-to-cart-btn');
+    
+    if (selectedIndex === "") {
+        detailsContainer.classList.add('hidden');
+        addToCartBtn.disabled = true;
+        return;
     }
+
+    const inStockVariations = product.variations.filter(v => v.quantity > 0);
+    const variation = inStockVariations[selectedIndex];
+
+    if (!variation) {
+        detailsContainer.classList.add('hidden');
+        addToCartBtn.disabled = true;
+        return;
+    }
+    
+    document.getElementById('pos-modal-stock').textContent = variation.quantity;
+    document.getElementById('pos-modal-cost-price').textContent = formatCurrency(product.cost_price);
+    document.getElementById('pos-modal-sale-price').value = product.sale_price.toFixed(2);
+    const quantityInput = document.getElementById('pos-modal-quantity');
+    quantityInput.value = 1;
+    quantityInput.max = variation.quantity;
+
+    detailsContainer.classList.remove('hidden');
+    addToCartBtn.disabled = false;
 }
 
-function closeVariationModal() { document.getElementById('variation-modal').classList.add('hidden'); }
+function closePOSProductModal() {
+    document.getElementById('pos-product-modal').classList.add('hidden');
+    currentModalProduct = null;
+}
 
-function handleCartItemRemove(e) {
-    const btn = e.target.closest('.remove-cart-item-btn');
-    if (btn) {
-        appState.cart = appState.cart.filter(item => item.cartId != btn.dataset.cartId);
-        renderCart();
+function handleAddToCart() {
+    const product = currentModalProduct;
+    const select = document.getElementById('pos-modal-variation-select');
+    const selectedIndex = select.value;
+    const inStockVariations = product.variations.filter(v => v.quantity > 0);
+    const variation = inStockVariations[selectedIndex];
+    
+    const quantity = parseInt(document.getElementById('pos-modal-quantity').value, 10);
+    const salePrice = parseFloat(document.getElementById('pos-modal-sale-price').value);
+
+    if (!variation || isNaN(quantity) || quantity <= 0 || isNaN(salePrice)) {
+        showToast('Invalid quantity or price.', 'error');
+        return;
     }
+
+    if (quantity > variation.quantity) {
+        showToast(`Only ${variation.quantity} in stock.`, 'error');
+        return;
+    }
+    
+    const cartId = `${product.id}-${variation.size}-${variation.color}`;
+    const existingCartItem = appState.cart.find(item => item.cartId === cartId);
+
+    if (existingCartItem) {
+        // Check if adding more exceeds stock
+        if(existingCartItem.quantity + quantity > variation.quantity) {
+             showToast(`Cannot add ${quantity}. Cart has ${existingCartItem.quantity}, and stock is ${variation.quantity}.`, 'warning');
+             return;
+        }
+        existingCartItem.quantity += quantity;
+        existingCartItem.unit_price = salePrice; // Allow price update
+    } else {
+        appState.cart.push({
+            cartId: cartId,
+            productId: product.id,
+            name: product.name,
+            unit_price: salePrice,
+            quantity: quantity,
+            variation: { size: variation.size, color: variation.color },
+            maxStock: variation.quantity
+        });
+    }
+
+    renderCart();
+    showToast(`${quantity} x ${product.name} added to cart.`, 'success');
+    closePOSProductModal();
+}
+
+function handleCartActions(e) {
+    const btn = e.target.closest('button[data-cart-id]');
+    if (!btn) return;
+
+    const cartId = btn.dataset.cartId;
+    const action = btn.dataset.action;
+    const itemIndex = appState.cart.findIndex(item => item.cartId === cartId);
+    if (itemIndex === -1) return;
+
+    if (action === 'remove') {
+        appState.cart.splice(itemIndex, 1);
+    } else if (action === 'decrease') {
+        appState.cart[itemIndex].quantity -= 1;
+        if (appState.cart[itemIndex].quantity <= 0) {
+            appState.cart.splice(itemIndex, 1);
+        }
+    }
+    renderCart();
 }
 
 async function handleProcessSale() {
     if (appState.cart.length === 0) return;
     document.getElementById('process-sale-btn').disabled = true;
-    const totalAmount = appState.cart.reduce((sum, item) => sum + item.sale_price, 0);
+    const totalAmount = appState.cart.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
+    
     const { data: saleData, error: saleError } = await supabaseClient.from('sales').insert({ total_amount: totalAmount }).select().single();
-    if (saleError) { showToast('Error creating sale.', 'error'); document.getElementById('process-sale-btn').disabled = false; return; }
-    const saleItems = appState.cart.map(item => ({ sale_id: saleData.id, product_id: item.productId, quantity_sold: 1, price_per_unit: item.sale_price, variation_details: item.variation }));
+    if (saleError) { showToast(`Error creating sale: ${saleError.message}`, 'error'); document.getElementById('process-sale-btn').disabled = false; return; }
+    
+    const saleItems = appState.cart.map(item => ({ 
+        sale_id: saleData.id, 
+        product_id: item.productId, 
+        quantity_sold: item.quantity, 
+        price_per_unit: item.unit_price, 
+        variation_details: item.variation 
+    }));
+    
     const { error: itemsError } = await supabaseClient.from('sale_items').insert(saleItems);
-    if (itemsError) { showToast('Error saving sale items.', 'error'); return; }
+    if (itemsError) { showToast(`Error saving sale items: ${itemsError.message}`, 'error'); return; }
 
+    // Use a loop for stock updates to handle potential errors individually
     for (const item of appState.cart) {
         const product = appState.products.find(p => p.id === item.productId);
-        const vIndex = product.variations.findIndex(v => v.size === item.variation.size && v.color === item.variation.color);
-        if (vIndex > -1) {
-            product.variations[vIndex].quantity -= 1;
-            const { error: updateError } = await supabaseClient.from('products').update({ variations: product.variations }).eq('id', product.id);
-            if (updateError) console.error("Stock update error:", updateError);
+        if (product) {
+            const vIndex = product.variations.findIndex(v => v.size === item.variation.size && v.color === item.variation.color);
+            if (vIndex > -1) {
+                product.variations[vIndex].quantity -= item.quantity;
+                const { error: updateError } = await supabaseClient.from('products').update({ variations: product.variations }).eq('id', product.id);
+                if (updateError) {
+                    showToast(`Error updating stock for ${product.name}: ${updateError.message}`, 'error');
+                    // Decide how to handle this - e.g., log it, try to revert sale, etc.
+                    console.error("Stock update error:", updateError);
+                }
+            }
         }
     }
-    saleData.sale_items = saleItems.map(si => ({...si, products: { cost_price: appState.products.find(p => p.id === si.product_id)?.cost_price || 0 } }));
-    appState.sales.unshift(saleData);
+    
+    await fetchInitialData(); // Refetch all data to ensure consistency
     showToast('Sale processed successfully!');
     clearCart();
     renderPOSProductGrid();
+    document.getElementById('process-sale-btn').disabled = false;
 }
 
 async function generateReport() {
@@ -1792,12 +2003,12 @@ async function generateReport() {
     const endDate = document.getElementById('report-end-date').value;
     if (!startDate || !endDate) { showToast('Please select a start and end date.', 'error'); return; }
     
-    const { data, error } = await supabaseClient.from('sales').select('*, sale_items(*, products(cost_price))').gte('created_at', new Date(startDate).toISOString()).lte('created_at', new Date(`${endDate}T23:59:59Z`).toISOString()).order('created_at', { ascending: false });
+    const { data, error } = await supabaseClient.from('sales').select('*, sale_items(*, products(name, cost_price))').gte('created_at', new Date(startDate).toISOString()).lte('created_at', new Date(`${endDate}T23:59:59Z`).toISOString()).order('created_at', { ascending: false });
     if (error) { showToast(`Error fetching report: ${error.message}`, 'error'); return; }
 
     const totalRevenue = data.reduce((sum, s) => sum + s.total_amount, 0);
-    const totalItemsSold = data.reduce((sum, s) => sum + s.sale_items.length, 0);
-    const totalProfit = data.reduce((sum, s) => sum + s.sale_items.reduce((itemSum, item) => itemSum + (item.price_per_unit - (item.products?.cost_price || 0)), 0), 0);
+    const totalItemsSold = data.reduce((sum, s) => sum + s.sale_items.reduce((itemSum, i) => itemSum + i.quantity_sold, 0), 0);
+    const totalProfit = data.reduce((sum, s) => sum + s.sale_items.reduce((itemSum, item) => itemSum + ((item.price_per_unit - (item.products?.cost_price || 0)) * item.quantity_sold), 0), 0);
 
     document.getElementById('report-stats').innerHTML = `
         <div class="stat-card"><div class="stat-card-header"><div><div class="stat-label">Total Revenue</div><div class="stat-value">${formatCurrency(totalRevenue)}</div></div><div class="stat-card-icon primary"><i class="fas fa-chart-line"></i></div></div></div>
@@ -1807,7 +2018,7 @@ async function generateReport() {
     `;
 
     const tableContainer = document.getElementById('sales-history-container');
-    tableContainer.innerHTML = data.length === 0 ? '<div class="empty-state" style="padding: 2rem;"><p>No sales found in this date range.</p></div>' : `<table><thead><tr><th>Sale ID</th><th>Date</th><th>Items</th><th>Total Amount</th><th>Profit</th></tr></thead><tbody>${data.map(s => { const profit = s.sale_items.reduce((sum, item) => sum + (item.price_per_unit - (item.products?.cost_price || 0)), 0); return `<tr><td>#${s.id}</td><td>${formatDate(s.created_at)}</td><td>${s.sale_items.length}</td><td>${formatCurrency(s.total_amount)}</td><td>${formatCurrency(profit)}</td></tr>`; }).join('')}</tbody></table>`;
+    tableContainer.innerHTML = data.length === 0 ? '<div class="empty-state" style="padding: 2rem;"><p>No sales found in this date range.</p></div>' : `<table><thead><tr><th>Sale ID</th><th>Date</th><th>Items</th><th>Total Amount</th><th>Profit</th></tr></thead><tbody>${data.map(s => { const profit = s.sale_items.reduce((sum, item) => sum + ((item.price_per_unit - (item.products?.cost_price || 0)) * item.quantity_sold), 0); const totalItems = s.sale_items.reduce((sum, i) => sum + i.quantity_sold, 0); return `<tr><td>#${s.id}</td><td>${formatDate(s.created_at)}</td><td>${totalItems}</td><td>${formatCurrency(s.total_amount)}</td><td>${formatCurrency(profit)}</td></tr>`; }).join('')}</tbody></table>`;
 }
 
 function saveLowStockThreshold() {
