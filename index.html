@@ -191,6 +191,26 @@
 .search-item:hover { background: #f8fafc; color: var(--primary); }
 .search-item:last-child { border-bottom: none; }
     }
+
+
+
+    /* --- VARIANT STYLES --- */
+.variant-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+.variant-table th { background: #f1f5f9; padding: 8px; text-align: left; border: 1px solid #e2e8f0; }
+.variant-table td { padding: 6px; border: 1px solid #e2e8f0; }
+.v-input { width: 100%; border: none; background: transparent; outline: none; }
+.btn-icon { padding: 4px 8px; background: #fee2e2; color: red; border-radius: 4px; border: none; cursor: pointer; }
+
+/* POS Variant Selector Modal */
+.v-selector-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-top: 15px; }
+.v-select-card { 
+    background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px; 
+    border-radius: 6px; cursor: pointer; text-align: center; transition: 0.2s;
+}
+.v-select-card:hover { border-color: var(--primary); background: #eef2ff; }
+.v-stock-badge { font-size: 10px; background: #e2e8f0; padding: 2px 6px; border-radius: 4px; }
+
+
     </style>
 </head>
 <body>
@@ -277,19 +297,27 @@
                     <div class="cart-list" id="cart-list">
                         <!-- Items Injected Here -->
                     </div>
-                    <div class="cart-footer">
-                        <div class="total-row"><span>Subtotal:</span> <span id="c-sub">0</span></div>
-                        <div class="total-row">
-                            <span>Delivery:</span> 
-                            <input type="number" id="c-del" value="0" style="width:80px; text-align:right;" onchange="updateCartTotals()">
-                        </div>
-                        <div class="total-row">
-                            <span>Discount:</span> 
-                            <input type="number" id="c-disc" value="0" style="width:80px; text-align:right;" onchange="updateCartTotals()">
-                        </div>
-                        <div class="grand-total"><span>Total:</span> <span id="c-total">0</span></div>
-                        <button class="btn btn-primary" style="width:100%; justify-content:center; padding:12px;" onclick="processCheckout()">✅ Complete Sale & Print</button>
-                    </div>
+                   <!-- UPDATE THIS SECTION IN YOUR HTML -->
+<div class="cart-footer">
+    <div class="total-row"><span>Subtotal (Gross):</span> <span id="c-sub">0</span></div>
+    
+    <div class="total-row">
+        <span>Delivery Charge:</span> 
+        <input type="number" id="c-del" value="0" style="width:80px; text-align:right;" onchange="updateCartTotals()">
+    </div>
+    
+    <!-- CHANGED: Overall Discount is now Percentage -->
+    <div class="total-row" style="align-items: center;">
+        <span>Apply Overall Disc (%):</span> 
+        <input type="number" id="c-disc-global" placeholder="0%" style="width:80px; text-align:right;" oninput="applyGlobalDiscount(this.value)">
+    </div>
+
+    <div class="grand-total"><span>Net Payable:</span> <span id="c-total">0</span></div>
+    
+    <button class="btn btn-primary" style="width:100%; justify-content:center; padding:12px;" onclick="processCheckout()">
+        ✅ Complete Sale & Print
+    </button>
+</div>
                 </div>
             </div>
         </div>
@@ -410,68 +438,75 @@
 
     <!-- MODALS -->
     
-<!-- MODAL: SMART PRODUCT ENTRY -->
+<!-- MODAL: PRODUCT & VARIANT MASTER -->
 <div id="modal-prod" class="modal">
-    <div class="modal-box">
-        <h2 id="m-title">Product Entry</h2>
+    <div class="modal-box" style="width: 600px;">
+        <h2 id="m-title">Product Manager</h2>
         
-        <!-- 1. SMART SEARCH BAR -->
+        <!-- Smart Search -->
         <div class="search-wrapper">
-            <input id="p-search" placeholder="🔍 Type Name or UID to search existing..." 
+            <input id="p-search" placeholder="🔍 Scan/Type UID to Edit Existing..." 
                    onkeyup="searchForModal(this.value)" 
                    style="background: #f8fafc; border: 1px solid var(--primary); font-weight: bold;">
             <div id="p-results" class="search-results"></div>
         </div>
 
-        <input type="hidden" id="p-id"> <!-- Hidden ID to track if updating -->
+        <input type="hidden" id="p-id"> 
 
-        <div style="display:grid; gap:15px;">
+        <!-- MASTER DETAILS -->
+        <div style="display:grid; gap:15px; border-bottom: 2px dashed #e2e8f0; padding-bottom: 15px; margin-bottom: 15px;">
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                 <div>
-                    <label>UID / Code</label>
-                    <input id="p-uid" placeholder="Auto or Scan">
+                    <label>Master UID (Style Code)</label>
+                    <input id="p-uid" placeholder="e.g. 1001">
                 </div>
                 <div>
                     <label>Category</label>
                     <select id="p-cat" style="padding:9px;"></select>
                 </div>
             </div>
-            
             <div><label>Product Name</label><input id="p-name"></div>
-            <div><label>Supplier</label><input id="p-sup"></div>
-            
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
+                <div><label>Supplier</label><input id="p-sup"></div>
                 <div><label>Buy Price</label><input type="number" id="p-buy"></div>
                 <div><label>Sell Price</label><input type="number" id="p-sell"></div>
             </div>
-            
-            <!-- Stock Logic -->
-            <div style="background: #f0fdf4; padding: 10px; border-radius: 8px; border: 1px solid #bbf7d0;">
-                <div id="stock-info" style="font-size:12px; color: var(--text-muted); margin-bottom: 5px;">
-                    Initial Stock:
-                </div>
-                <input type="number" id="p-stock" placeholder="Enter Quantity to ADD">
-            </div>
+        </div>
 
-            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px;">
-                <button class="btn btn-sec" onclick="closeModal('modal-prod')">Cancel</button>
-                <button class="btn btn-primary" onclick="saveProduct()">💾 Save / Update</button>
+        <!-- VARIANT BUILDER -->
+        <div>
+            <h4 style="margin:0 0 10px 0;">Variants (Stock)</h4>
+            <div style="display:flex; gap:5px; background: #f8fafc; padding: 10px; border-radius: 6px;">
+                <input id="v-color" placeholder="Color (e.g. Red)" style="flex:1">
+                <input id="v-size" placeholder="Size (e.g. XL)" style="flex:1">
+                <input type="number" id="v-qty" placeholder="Qty" style="width:70px;">
+                <button class="btn btn-primary" onclick="addVariantRow()">+ Add</button>
             </div>
+            
+            <table class="variant-table">
+                <thead><tr><th>SKU (Auto)</th><th>Color</th><th>Size</th><th>Stock</th><th>Action</th></tr></thead>
+                <tbody id="variant-list"></tbody>
+            </table>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+            <button class="btn btn-sec" onclick="closeModal('modal-prod')">Cancel</button>
+            <button class="btn btn-primary" onclick="saveProduct()">💾 Save Master & Variants</button>
         </div>
     </div>
 </div>
 
-    <!-- Transaction Detail / Return Modal -->
-    <div id="modal-trx" class="modal">
-        <div class="modal-box" style="width:600px;">
-            <h2>Transaction Details</h2>
-            <div id="trx-content"></div>
-            <div style="text-align:right; margin-top:20px;">
-                <button class="btn btn-sec" onclick="closeModal('modal-trx')">Close</button>
-            </div>
+<!-- NEW MODAL: POS VARIANT SELECTOR -->
+<div id="modal-v-select" class="modal">
+    <div class="modal-box" style="width: 400px;">
+        <h3>Select Variation</h3>
+        <p id="v-select-title" style="color:#64748b; margin-top:-10px;"></p>
+        <div id="v-select-grid" class="v-selector-grid"></div>
+        <div style="text-align:right; margin-top:15px;">
+            <button class="btn btn-sec" onclick="closeModal('modal-v-select')">Cancel</button>
         </div>
     </div>
-
+</div>
     <!-- Hidden Print Area -->
     <div id="print-area"></div>
 
@@ -579,159 +614,136 @@
         // --- SMART PRODUCT MODAL LOGIC ---
 
 // 1. Open Modal (Resets everything)
+// --- VARIANT & PRODUCT LOGIC ---
+
+// Global temporary array to hold variants while editing
+let tempVariants = [];
+
 function openProdModal() {
-    // Reset Title & ID
-    document.getElementById('m-title').innerText = "Add Product / Update Stock";
-    document.getElementById('p-id').value = ""; // Empty ID means NEW product
-    
-    // Clear Inputs
+    document.getElementById('m-title').innerText = "Add New Product";
+    document.getElementById('p-id').value = "";
     document.querySelectorAll('#modal-prod input').forEach(i => i.value = "");
     
-    // Reset Search Elements
-    document.getElementById('p-search').value = "";
-    document.getElementById('p-results').style.display = 'none';
+    // Clear Variant Table
+    tempVariants = [];
+    renderVariantTable();
     
-    // Reset Logic specific to "New Product"
-    document.getElementById('p-uid').readOnly = false; // Allow typing UID
-    document.getElementById('stock-info').innerHTML = "Initial Stock:";
-    document.getElementById('p-stock').placeholder = "Enter Quantity";
-    
-    // Show Modal
+    document.getElementById('p-uid').readOnly = false;
     document.getElementById('modal-prod').style.display = 'flex';
-    
-    // Focus on search bar for speed
     setTimeout(() => document.getElementById('p-search').focus(), 100);
 }
 
-// 2. Search as you type
-function searchForModal(q) {
-    const resDiv = document.getElementById('p-results');
-    
-    // Hide if empty
-    if (q.length < 1) {
-        resDiv.style.display = 'none';
-        return;
-    }
-    
-    // Find matches (Name or UID)
-    const matches = db.products.filter(p =>
-        p.name.toLowerCase().includes(q.toLowerCase()) ||
-        p.uid.toLowerCase().includes(q.toLowerCase())
-    );
-    
-    if (matches.length > 0) {
-        resDiv.style.display = 'block';
-        resDiv.innerHTML = matches.map(p => `
-                <div class="search-item" onclick="fillModalFromSearch(${p.id})">
-                    <div>
-                        <strong>${p.name}</strong>
-                        <br><small style="color:#666">${p.uid}</small>
-                    </div>
-                    <div style="text-align:right">
-                        <span class="tag" style="background:#dcfce7; color:#166534">Stock: ${p.stock}</span>
-                        <br><small>৳${p.sell}</small>
-                    </div>
-                </div>
-            `).join('');
-    } else {
-        resDiv.style.display = 'none';
-    }
-}
-
-// 3. Select Existing Product (Switch to Update Mode)
 function fillModalFromSearch(id) {
     const p = db.products.find(x => x.id === id);
-    if (!p) return;
-    
-    // Fill the form
-    document.getElementById('p-id').value = p.id; // Set ID (Critical for Update)
+    if(!p) return;
+
+    document.getElementById('p-id').value = p.id;
     document.getElementById('p-uid').value = p.uid;
-    document.getElementById('p-uid').readOnly = true; // Lock UID
+    document.getElementById('p-uid').readOnly = true;
     document.getElementById('p-name').value = p.name;
     document.getElementById('p-cat').value = p.cat;
     document.getElementById('p-sup').value = p.sup;
     document.getElementById('p-buy').value = p.buy;
     document.getElementById('p-sell').value = p.sell;
+
+    // Load existing variants into temp array
+    // If old product (no variants), create a default one
+    tempVariants = p.variants ? JSON.parse(JSON.stringify(p.variants)) : 
+                   [{sku: p.uid, color: 'Std', size: 'Std', stock: p.stock}];
     
-    // UI Updates for "Stock Adding" mode
-    document.getElementById('stock-info').innerHTML = `Current Stock: <b>${p.stock}</b> + New Entry:`;
-    document.getElementById('p-stock').value = ""; // Clear stock so user adds NEW amount
-    document.getElementById('p-stock').placeholder = "Add amount (e.g. 10)";
-    document.getElementById('p-stock').focus();
-    
-    // Hide Search Results
+    renderVariantTable();
     document.getElementById('p-results').style.display = 'none';
-    document.getElementById('p-search').value = ""; // Clear search bar
+    document.getElementById('p-search').value = "";
 }
 
-// 4. Save (Handles both NEW and EXISTING)
+// Add a row to the table (InMemory)
+function addVariantRow() {
+    const color = document.getElementById('v-color').value || "Std";
+    const size = document.getElementById('v-size').value || "Std";
+    const qty = Number(document.getElementById('v-qty').value);
+    const uid = document.getElementById('p-uid').value;
+
+    if(!uid) return alert("Enter Master UID first!");
+    if(qty <= 0) return alert("Enter Quantity");
+
+    // Auto-Generate SKU: UID-COLOR-SIZE
+    const sku = `${uid}-${color.toUpperCase().slice(0,3)}-${size.toUpperCase()}`;
+    
+    // Check if SKU exists in temp list
+    const ex = tempVariants.find(v => v.sku === sku);
+    if(ex) {
+        ex.stock += qty; // Just add stock
+    } else {
+        tempVariants.push({ sku, color, size, stock: qty });
+    }
+
+    renderVariantTable();
+    // Clear inputs
+    document.getElementById('v-qty').value = "";
+}
+
+function renderVariantTable() {
+    const tbody = document.getElementById('variant-list');
+    tbody.innerHTML = tempVariants.map((v, i) => `
+        <tr>
+            <td>${v.sku}</td>
+            <td>${v.color}</td>
+            <td>${v.size}</td>
+            <td><b>${v.stock}</b></td>
+            <td><button class="btn-icon" onclick="tempVariants.splice(${i},1); renderVariantTable()">×</button></td>
+        </tr>
+    `).join('');
+}
+
 function saveProduct() {
     const id = document.getElementById('p-id').value;
-    const inputStock = Number(document.getElementById('p-stock').value);
-    
     const obj = {
         uid: document.getElementById('p-uid').value || "GEN-" + Date.now(),
         name: document.getElementById('p-name').value,
         cat: document.getElementById('p-cat').value || "General",
         sup: document.getElementById('p-sup').value,
         buy: Number(document.getElementById('p-buy').value),
-        sell: Number(document.getElementById('p-sell').value)
+        sell: Number(document.getElementById('p-sell').value),
+        variants: tempVariants // Save the array
     };
-    
-    if (!obj.name || !obj.sell) return alert("Name and Price required!");
-    
-    let logEntry = {
-        date: new Date().toISOString(),
-        name: obj.name,
-        uid: obj.uid,
-        added: inputStock,
-        type: 'New Item'
-    };
-    
-    if (id) {
-        // UPDATE EXISTING
-        const index = db.products.findIndex(x => x.id == id);
-        if (index > -1) {
+
+    // Calculate Total Stock for display purposes
+    obj.stock = tempVariants.reduce((sum, v) => sum + v.stock, 0);
+
+    if(!obj.name || !obj.sell) return alert("Name and Price required!");
+    if(tempVariants.length === 0) return alert("Add at least one variant/stock!");
+
+    if(id) {
+        const idx = db.products.findIndex(x => x.id == id);
+        if(idx > -1) {
             obj.id = Number(id);
-            const oldStock = db.products[index].stock;
+            db.products[idx] = obj;
             
-            // Logic: Only add inputStock if user typed something
-            obj.stock = oldStock + inputStock;
-            
-            // Log details
-            logEntry.type = inputStock > 0 ? 'Restock' : 'Update Info';
-            logEntry.finalStock = obj.stock;
-            
-            db.products[index] = obj;
-            if (inputStock > 0) alert(`Stock Updated! New Total: ${obj.stock}`);
-            else alert("Product Details Updated");
+            // Log Update
+            if(!db.productLogs) db.productLogs = [];
+            db.productLogs.unshift({
+                date: new Date().toISOString(),
+                name: obj.name, uid: obj.uid, 
+                added: 0, type: 'Info/Stock Update', finalStock: obj.stock
+            });
         }
     } else {
-        // CREATE NEW
         obj.id = Date.now();
-        obj.stock = inputStock;
-        
-        logEntry.type = 'Created';
-        logEntry.finalStock = inputStock;
-        
         db.products.push(obj);
-        alert("New Product Created!");
+        
+        // Log Creation
+        if(!db.productLogs) db.productLogs = [];
+        db.productLogs.unshift({
+            date: new Date().toISOString(),
+            name: obj.name, uid: obj.uid, 
+            added: obj.stock, type: 'Created', finalStock: obj.stock
+        });
     }
-    
-    // --- SAVE LOG ---
-    // Only log if stock changed or created
-    if (inputStock > 0 || !id) {
-        if (!db.productLogs) db.productLogs = [];
-        db.productLogs.unshift(logEntry);
-    }
-    // ----------------
-    
+
     save();
     closeModal('modal-prod');
     renderInv();
-    updateCatDropdowns();
     renderPOS();
-    filterLowStock();
 }
 
         function delProd(id) {
@@ -743,67 +755,165 @@ function saveProduct() {
         }
 
         /* --- 3. POS LOGIC --- */
-        function renderPOS() {
-            const grid = document.getElementById('pos-grid');
-            grid.innerHTML = "";
-            const q = document.getElementById('pos-search').value.toLowerCase();
-            const cat = document.getElementById('pos-cat').value;
+       function renderPOS() {
+    const grid = document.getElementById('pos-grid');
+    grid.innerHTML = "";
+    const q = document.getElementById('pos-search').value.toLowerCase();
+    const cat = document.getElementById('pos-cat').value;
 
-            db.products.filter(p => 
-                (p.name.toLowerCase().includes(q) || p.uid.toLowerCase().includes(q)) &&
-                (cat === "" || p.cat === cat) && p.stock > 0
-            ).forEach(p => {
-                grid.innerHTML += `
-                    <div class="pos-card" onclick="addToCart(${p.id})">
-                        <div class="stock-tag">${p.stock}</div>
-                        <div style="font-weight:bold; font-size:14px;">${p.name}</div>
-                        <div style="font-size:12px; color:var(--text-muted);">${p.uid}</div>
-                        <div style="color:var(--primary); font-weight:bold; margin-top:auto;">৳${p.sell}</div>
+    db.products.filter(p => 
+        (p.name.toLowerCase().includes(q) || p.uid.toLowerCase().includes(q)) &&
+        (cat === "" || p.cat === cat) && p.stock > 0
+    ).forEach(p => {
+        grid.innerHTML += `
+            <div class="pos-card" onclick="addToCart(${p.id})">
+                <div class="stock-tag">${p.stock}</div>
+                <div style="font-weight:bold; font-size:14px;">${p.name}</div>
+                <div style="font-size:12px; color:var(--text-muted);">${p.uid}</div>
+                <div style="color:var(--primary); font-weight:bold; margin-top:auto;">৳${p.sell}</div>
+            </div>
+        `;
+    });
+}
+function addToCart(idOrSku) {
+    // 1. Try to find by specific Variant SKU first (Scanner behavior)
+    let foundProd = null;
+    let foundVariant = null;
+
+    // Loop to find SKU match
+    db.products.forEach(p => {
+        if(p.variants) {
+            const v = p.variants.find(v => v.sku === idOrSku); // Check Variant SKU
+            if(v) { foundProd = p; foundVariant = v; }
+        }
+    });
+
+    // 2. If scanned specific variant, add directly
+    if(foundProd && foundVariant) {
+        pushToCart(foundProd, foundVariant);
+        return;
+    }
+
+    // 3. If not found by SKU, find by Master Product ID
+    foundProd = db.products.find(x => x.id === idOrSku);
+    
+    if(foundProd) {
+        // Handle "One-click" for old data or single variant
+        if(!foundProd.variants || foundProd.variants.length <= 1) {
+            // Create dummy variant if old data
+            const v = foundProd.variants ? foundProd.variants[0] : {sku: foundProd.uid, color:'Std', size:'Std', stock: foundProd.stock};
+            pushToCart(foundProd, v);
+        } else {
+            // MULTIPLE VARIANTS: Show Selector Modal
+            openVariantSelector(foundProd);
+        }
+    }
+}
+
+// Helper: The "Which one?" Popup
+function openVariantSelector(prod) {
+    const grid = document.getElementById('v-select-grid');
+    document.getElementById('v-select-title').innerText = prod.name;
+    
+    grid.innerHTML = prod.variants.map(v => `
+        <div class="v-select-card" onclick="selectVariant(${prod.id}, '${v.sku}')">
+            <div style="font-weight:bold;">${v.color} - ${v.size}</div>
+            <div style="font-size:11px; color:#64748b;">${v.sku}</div>
+            <div class="v-stock-badge ${v.stock<1?'bg-red':''}">Stock: ${v.stock}</div>
+        </div>
+    `).join('');
+    
+    document.getElementById('modal-v-select').style.display = 'flex';
+}
+
+function selectVariant(prodId, vSku) {
+    const p = db.products.find(x => x.id === prodId);
+    const v = p.variants.find(x => x.sku === vSku);
+    pushToCart(p, v);
+    closeModal('modal-v-select');
+}
+
+// Actual Cart Add Logic
+function pushToCart(prod, variant) {
+    if(variant.stock <= 0) return alert("Out of Stock!");
+
+    // Check if this specific VARIANT is in cart
+    const ex = cart.find(c => c.sku === variant.sku);
+    
+    if(ex) {
+        if(ex.qty < variant.stock) ex.qty++;
+        else alert("Stock Limit Reached");
+    } else {
+        const globalDisc = Number(document.getElementById('c-disc-global').value) || 0;
+        cart.push({
+            id: prod.id,
+            name: prod.name,
+            sku: variant.sku,        // STORE THE SKU
+            color: variant.color,    // STORE DETAILS
+            size: variant.size,
+            stock: variant.stock,    // Max Stock
+            actualSell: prod.sell,
+            buy: prod.buy,
+            qty: 1,
+            discPercent: globalDisc,
+            sup: prod.sup
+        });
+    }
+    renderCart();
+}
+     function renderCart() {
+    const div = document.getElementById('cart-list');
+    div.innerHTML = "";
+    
+    cart.forEach((c, idx) => {
+        // Math calculations
+        const originalTotal = c.actualSell * c.qty;
+        const discountAmount = originalTotal * (c.discPercent / 100);
+        const finalLineTotal = originalTotal - discountAmount;
+
+        div.innerHTML += `
+            <div class="cart-item" style="display:block;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                    <span style="font-weight:600;">${c.name}</span>
+                    <button style="color:red; border:none; background:none; cursor:pointer;" onclick="remCart(${idx})">✖</button>
+                </div>
+                
+                <!-- RESTORED: Supplier and Stock Info -->
+                <div style="font-size:11px; color:#64748b; margin-bottom:5px;">
+                    ${c.sup || 'N/A'} | Stock: ${c.stock}
+                </div>
+                
+                <div style="display:flex; align-items:center; gap:5px; font-size:12px; color:#64748b;">
+                    <span>Price: ৳</span>
+                    <input class="cart-input" type="number" value="${c.actualSell}" 
+                           onchange="updateCartItem(${idx}, 'price', this.value)" style="width:60px;">
+                </div>
+
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-top:8px;">
+                    <!-- QTY CONTROLS -->
+                    <div class="cart-controls">
+                        <button class="btn btn-sec btn-sm" onclick="updCart(${idx}, -1)">-</button>
+                        <span style="font-weight:bold;">${c.qty}</span>
+                        <button class="btn btn-sec btn-sm" onclick="updCart(${idx}, 1)">+</button>
                     </div>
-                `;
-            });
-        }
 
-        function addToCart(id) {
-            const p = db.products.find(x => x.id === id);
-            const ex = cart.find(x => x.id === id);
-            if(ex) {
-                if(ex.qty < p.stock) ex.qty++;
-                else alert("Stock Limit Reached");
-            } else {
-                // actualSell is editable in cart
-                cart.push({...p, qty:1, actualSell: p.sell});
-            }
-            renderCart();
-        }
-
-        function renderCart() {
-            const div = document.getElementById('cart-list');
-            div.innerHTML = "";
-            cart.forEach((c, idx) => {
-                div.innerHTML += `
-                    <div class="cart-item">
-                        <div>
-                            <div style="font-weight:600;">${c.name}</div>
-                            <div style="font-size:11px; color:var(--text-muted);">${c.sup} | Stock: ${c.stock}</div>
-                            <div class="cart-controls">
-                                <button class="btn btn-sec btn-sm" onclick="updCart(${idx}, -1)">-</button>
-                                <span>${c.qty}</span>
-                                <button class="btn btn-sec btn-sm" onclick="updCart(${idx}, 1)">+</button>
-                                <span style="font-size:12px; margin-left:5px;">Price:</span>
-                                <input class="cart-input" type="number" value="${c.actualSell}" onchange="updPrice(${idx}, this.value)">
-                            </div>
-                        </div>
-                        <div style="text-align:right;">
-                            <button style="color:red; background:none; border:none; cursor:pointer;" onclick="remCart(${idx})">✖</button>
-                            <div style="font-weight:bold; margin-top:15px;">৳${c.qty * c.actualSell}</div>
-                        </div>
+                    <!-- DISCOUNT CONTROL -->
+                    <div style="display:flex; align-items:center; gap:2px;">
+                        <small>Disc%</small>
+                        <input class="cart-input" type="number" value="${c.discPercent}" 
+                               onchange="updateCartItem(${idx}, 'disc', this.value)" style="width:45px; border-color:var(--primary);">
                     </div>
-                `;
-            });
-            updateCartTotals();
-        }
 
+                    <!-- FINAL PRICE DISPLAY -->
+                    <div style="font-weight:bold; font-size:14px; color:var(--primary);">
+                        ৳${Math.round(finalLineTotal)}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    updateCartTotals();
+}
         function updCart(idx, chg) {
             const c = cart[idx];
             if(c.qty + chg > 0 && c.qty + chg <= c.stock) {
@@ -814,52 +924,111 @@ function saveProduct() {
         function updPrice(idx, val) { cart[idx].actualSell = Number(val); renderCart(); }
         function remCart(idx) { cart.splice(idx, 1); renderCart(); }
 
-        function updateCartTotals() {
-            const sub = cart.reduce((a,b) => a + (b.qty * b.actualSell), 0);
-            const del = Number(document.getElementById('c-del').value);
-            const disc = Number(document.getElementById('c-disc').value);
-            document.getElementById('c-sub').innerText = sub;
-            document.getElementById('c-total').innerText = "৳" + (sub + del - disc);
+       // Handle specific item updates
+function updateCartItem(idx, type, val) {
+    const v = Number(val);
+    if(type === 'price') cart[idx].actualSell = v;
+    if(type === 'disc') cart[idx].discPercent = v; // Update specific item discount
+    renderCart();
+}
+
+// Handle "Apply to All" Discount
+function applyGlobalDiscount(val) {
+    const pct = Number(val);
+    // Loop through all items and update their discount percent
+    cart.forEach(item => {
+        item.discPercent = pct;
+    });
+    renderCart();
+}
+
+// Calculate Grand Total
+function updateCartTotals() {
+    let grossSub = 0;
+    let totalPayable = 0;
+
+    cart.forEach(c => {
+        const lineGross = c.actualSell * c.qty;
+        const lineDisc = lineGross * (c.discPercent / 100);
+        
+        grossSub += lineGross;
+        totalPayable += (lineGross - lineDisc);
+    });
+
+    const del = Number(document.getElementById('c-del').value);
+    
+    document.getElementById('c-sub').innerText = grossSub; // Show original value
+    document.getElementById('c-total').innerText = "৳" + Math.round(totalPayable + del);
+}
+
+       function processCheckout() {
+    if(cart.length === 0) return alert("Cart Empty");
+    
+    let grossSub = 0;
+    let netTotal = 0;
+    const del = Number(document.getElementById('c-del').value);
+
+    // Prepare Items with finalized pricing
+    const finalItems = cart.map(c => {
+        const unitGross = c.actualSell;
+        const unitDisc = unitGross * (c.discPercent / 100);
+        const unitFinal = unitGross - unitDisc;
+        
+        grossSub += (unitGross * c.qty);
+        netTotal += (unitFinal * c.qty);
+        
+        return {
+            ...c,
+            unitFinalPrice: unitFinal, // STORE THIS FOR RETURNS
+            discountAmt: unitDisc * c.qty
+        };
+    });
+
+    const grandTotal = netTotal + del;
+    const totalDiscount = grossSub - netTotal;
+
+    // Calculate Profit (Final Selling Price - Buy Price)
+    const profit = finalItems.reduce((acc, item) => {
+        return acc + ((item.unitFinalPrice - item.buy) * item.qty);
+    }, 0);
+
+    const trx = {
+        id: "INV-" + Date.now().toString().slice(-6),
+        date: new Date().toISOString(),
+        type: 'sale',
+        cust: document.getElementById('cust-name').value || "Guest",
+        phone: document.getElementById('cust-phone').value || "",
+        items: finalItems,
+        sub: grossSub, 
+        del: del, 
+        disc: totalDiscount, // Total discount value
+        total: Math.round(grandTotal), 
+        profit: Math.round(profit)
+    };
+
+    // Update Stock
+    trx.items.forEach(i => {
+        const p = db.products.find(x => x.id === i.id);
+        if(p && p.variants) {
+            const v = p.variants.find(v => v.sku === i.sku);
+            if(v) v.stock -= i.qty;
+            // Recalculate total stock for master
+            p.stock = p.variants.reduce((sum, v) => sum + v.stock, 0);
+        } else if (p) {
+            // Fallback for old data
+            p.stock -= i.qty;
         }
-
-        function processCheckout() {
-            if(cart.length === 0) return alert("Cart Empty");
-            
-            const sub = cart.reduce((a,b) => a + (b.qty * b.actualSell), 0);
-            const del = Number(document.getElementById('c-del').value);
-            const disc = Number(document.getElementById('c-disc').value);
-            const total = sub + del - disc;
-            const profit = cart.reduce((a,b) => a + ((b.actualSell - b.buy) * b.qty), 0) - disc;
-
-            const trx = {
-                id: "INV-" + Date.now().toString().slice(-6),
-                date: new Date().toISOString(),
-                type: 'sale',
-                cust: document.getElementById('cust-name').value || "Guest",
-                phone: document.getElementById('cust-phone').value || "",
-                items: cart.map(c => ({...c})), // copy
-                sub, del, disc, total, profit
-            };
-
-            // Update DB Stock
-            trx.items.forEach(i => {
-                const p = db.products.find(x => x.id === i.id);
-                if(p) p.stock -= i.qty;
-            });
-
-            db.transactions.unshift(trx);
-            save();
-            printReceipt(trx);
-            
-            // Reset
-            cart = [];
-            document.getElementById('c-del').value=0;
-            document.getElementById('c-disc').value=0;
-            document.getElementById('cust-name').value="";
-            document.getElementById('cust-phone').value="";
-            renderCart();
-            renderPOS();
-        }
+    });
+    
+    // Reset
+    cart = [];
+    document.getElementById('c-del').value = 0;
+    document.getElementById('c-disc-global').value = "";
+    document.getElementById('cust-name').value = "";
+    document.getElementById('cust-phone').value = "";
+    renderCart();
+    renderPOS();
+}
 
         /* --- 4. HISTORY & RETURNS --- */
         function renderHistory() {
@@ -890,7 +1059,7 @@ function saveProduct() {
             });
         }
 
-        function viewTrx(id) {
+       function viewTrx(id) {
     const t = db.transactions.find(x => x.id === id);
     
     let html = `
@@ -902,27 +1071,39 @@ function saveProduct() {
             <strong>Customer:</strong> ${t.cust}<br>
             <strong>Phone:</strong> ${t.phone || 'N/A'}
         </div>
-        <table style="width:100%; border-collapse:collapse;">
+        <table style="width:100%; border-collapse:collapse; font-size:13px;">
             <thead style="background:#f1f5f9;">
-                <tr><th style="padding:8px; text-align:left;">Item</th><th>Qty</th><th>Price</th><th>Total</th><th>Action</th></tr>
+                <tr>
+                    <th style="padding:8px; text-align:left;">Item</th>
+                    <th>Rate</th>
+                    <th>Qty</th>
+                    <th>Disc%</th>
+                    <th>Total</th>
+                    <th>Action</th>
+                </tr>
             </thead>
             <tbody>
     `;
     
     t.items.forEach((i, idx) => {
-        // Check if item is returned
         const isRet = i.isReturned === true;
-        const rowStyle = isRet ? 'background:#fee2e2; color:#991b1b; text-decoration:line-through;' : '';
         const status = isRet ? '<span class="tag tag-return">RETURNED</span>' : '';
+        
+        // Handle data fallbacks for old records
+        const unitPrice = i.actualSell;
+        const disc = i.discPercent || 0;
+        const finalPrice = i.unitFinalPrice || unitPrice;
+        const lineTotal = (i.qty * finalPrice).toFixed(2);
         
         html += `
             <tr style="border-bottom:1px solid #eee; ${isRet ? 'background:#fff1f2;' : ''}">
                 <td style="padding:8px;">
-                    ${i.name} ${status}
+                    <b>${i.name}</b> ${status}
                 </td>
+                <td style="text-align:center;">${unitPrice}</td>
                 <td style="text-align:center;">${i.qty}</td>
-                <td style="text-align:center;">${i.actualSell}</td>
-                <td style="text-align:center;">${i.qty * i.actualSell}</td>
+                <td style="text-align:center; color:red;">${disc}%</td>
+                <td style="text-align:center; font-weight:bold;">${lineTotal}</td>
                 <td style="text-align:center;">
                      ${t.type === 'sale' && !isRet ? 
                        `<button class="btn btn-danger btn-sm" onclick="processReturn('${t.id}', ${idx})">↩ Return</button>` : 
@@ -935,70 +1116,65 @@ function saveProduct() {
     
     html += `</tbody></table>
         <div style="text-align:right; margin-top:15px; border-top:2px solid #eee; padding-top:10px;">
-            <p style="margin:5px 0;">Subtotal: ${t.sub}</p>
-            <p style="margin:5px 0;">Discount: -${t.disc}</p>
+            <p style="margin:2px 0;">Subtotal (Gross): ${t.sub}</p>
+            <p style="margin:2px 0; color:red;">Total Discount: -${t.disc}</p>
+            <p style="margin:2px 0;">Delivery: +${t.del}</p>
             <h3 style="margin:5px 0;">Total Paid: ৳${t.total}</h3>
         </div>`;
     
     document.getElementById('trx-content').innerHTML = html;
     document.getElementById('modal-trx').style.display = 'flex';
 }
-        function processReturn(tid, idx) {
-    if (!confirm("Process Return? Stock will be restored and Profit deducted.")) return;
+       function processReturn(tid, idx) {
+    if(!confirm("Process Return? Amount will be calculated based on SOLD price.")) return;
     
-    // 1. Find Original Transaction & Item
     const orgTrx = db.transactions.find(x => x.id === tid);
     const item = orgTrx.items[idx];
-    
-    // Check if already returned
-    if (item.isReturned) return alert("Item already returned!");
-    
-    // 2. Restore Stock to Inventory
+
+    if(item.isReturned) return alert("Item already returned!");
+
+    // Restore Stock
     const prod = db.products.find(p => p.id === item.id);
-    if (prod) {
+    if(prod) {
         prod.stock += item.qty;
-        
-        // Log the stock return
-        if (!db.productLogs) db.productLogs = [];
+        // Log...
+        if(!db.productLogs) db.productLogs = [];
         db.productLogs.unshift({
             date: new Date().toISOString(),
-            name: prod.name,
-            uid: prod.uid,
-            added: item.qty,
-            type: 'Customer Return',
-            finalStock: prod.stock
+            name: prod.name, uid: prod.uid, added: item.qty, type: 'Customer Return', finalStock: prod.stock
         });
     }
-    
-    // 3. MARK ITEM AS RETURNED IN ORIGINAL BILL
-    item.isReturned = true; // <--- New Flag
-    orgTrx.items[idx] = item; // Update the item in the list
-    
-    // 4. Create the Negative Return Transaction (For Accounting/Dashboard)
-    const amount = item.qty * item.actualSell;
-    const profitLoss = (item.actualSell - item.buy) * item.qty; // Calculate profit to reverse
-    
+
+    // Update Original Flag
+    item.isReturned = true;
+    orgTrx.items[idx] = item;
+
+    // CALCULATE REFUND BASED ON DISCOUNTED PRICE
+    // Use unitFinalPrice which we saved during checkout
+    const refundAmount = item.qty * item.unitFinalPrice; 
+    const reversedProfit = (item.unitFinalPrice - item.buy) * item.qty;
+
     const retTrx = {
         id: "RET-" + Date.now().toString().slice(-6),
         date: new Date().toISOString(),
         type: 'return',
-        cust: orgTrx.cust,
+        cust: orgTrx.cust, 
         phone: orgTrx.phone,
-        items: [{ ...item }], // Copy item details
-        sub: -amount,
-        del: 0,
-        disc: 0,
-        total: -amount,
-        profit: -profitLoss // Deduct from profit
+        items: [{...item}],
+        sub: -refundAmount, 
+        del: 0, 
+        disc: 0, 
+        total: -refundAmount, // This is now accurate to what they paid
+        profit: -reversedProfit
     };
-    
+
     db.transactions.unshift(retTrx);
     save();
     
     closeModal('modal-trx');
-    renderHistory(); // Refresh list
-    renderDash(); // Update stats
-    alert("Return Processed Successfully");
+    renderHistory(); 
+    renderDash();
+    alert("Return Processed. Refund Amount: ৳" + refundAmount.toFixed(2));
 }
 
         /* --- 5. DASHBOARD LOGIC --- */
@@ -1095,13 +1271,19 @@ function saveProduct() {
             if(t) printReceipt(t);
         }
 
-        function printReceipt(t) {
+       function printReceipt(t) {
     const shop = db.settings || { name: "Shop Name", addr: "Address", phone: "Phone" };
     
-    // Create the HTML for A4 Invoice
+    // Helper to ensure we handle old data that might not have new fields
+    const getVal = (item) => {
+        const unitPrice = item.actualSell;
+        const disc = item.discPercent || 0;
+        const finalPrice = item.unitFinalPrice || unitPrice;
+        return { unitPrice, disc, finalPrice };
+    };
+
     const html = `
         <div style="max-width: 210mm; margin: 0 auto;">
-            <!-- HEADER -->
             <div class="print-header">
                 <div>
                     <h1 style="margin:0; font-size: 24px; color: #4f46e5;">${shop.name}</h1>
@@ -1115,54 +1297,55 @@ function saveProduct() {
                 </div>
             </div>
 
-            <!-- CUSTOMER INFO -->
             <div style="margin-bottom: 20px;">
                 <strong>Bill To:</strong><br>
                 <span style="font-size: 16px;">${t.cust}</span><br>
                 Phone: ${t.phone || "N/A"}
             </div>
 
-            <!-- TABLE -->
             <table class="print-table">
                 <thead>
                     <tr>
                         <th style="width: 5%;">#</th>
-                        <th style="width: 50%;">Item Description</th>
-                        <th style="width: 15%; text-align: center;">Qty</th>
-                        <th style="width: 15%; text-align: right;">Unit Price</th>
-                        <th style="width: 15%; text-align: right;">Total</th>
+                        <th style="width: 40%;">Item</th>
+                        <th style="width: 15%; text-align: right;">Rate</th>
+                        <th style="width: 10%; text-align: center;">Qty</th>
+                        <th style="width: 15%; text-align: center;">Disc%</th>
+                        <th style="width: 15%; text-align: right;">Amount</th>
                     </tr>
                 </thead>
                 <tbody>
-                    ${t.items.map((item, index) => `
+                    ${t.items.map((item, index) => {
+                        const { unitPrice, disc, finalPrice } = getVal(item);
+                        return `
                         <tr>
                             <td>${index + 1}</td>
                             <td>
                                 <b>${item.name}</b><br>
-                                <small style="color:#666;">UID: ${item.uid || item.id}</small>
+                                <small style="color:#666;">${item.uid || item.id}</small>
                             </td>
+                            <td class="text-right">${unitPrice}</td>
                             <td style="text-align: center;">${item.qty}</td>
-                            <td class="text-right">${item.actualSell}</td>
-                            <td class="text-right">${(item.qty * item.actualSell).toFixed(2)}</td>
-                        </tr>
-                    `).join('')}
+                            <td style="text-align: center;">${disc}%</td>
+                            <td class="text-right">${(item.qty * finalPrice).toFixed(2)}</td>
+                        </tr>`;
+                    }).join('')}
                 </tbody>
             </table>
 
-            <!-- TOTALS -->
             <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
                 <div style="width: 250px;">
                     <div style="display: flex; justify-content: space-between; padding: 5px 0;">
-                        <span>Subtotal:</span>
+                        <span>Subtotal (Gross):</span>
                         <span>${t.sub}</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; padding: 5px 0;">
-                        <span>Delivery Charge:</span>
-                        <span>+${t.del}</span>
-                    </div>
                     <div style="display: flex; justify-content: space-between; padding: 5px 0; color: red;">
-                        <span>Discount:</span>
+                        <span>Total Discount:</span>
                         <span>-${t.disc}</span>
+                    </div>
+                     <div style="display: flex; justify-content: space-between; padding: 5px 0;">
+                        <span>Delivery:</span>
+                        <span>+${t.del}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; padding: 10px 0; border-top: 2px solid #000; font-weight: bold; font-size: 18px;">
                         <span>Grand Total:</span>
@@ -1171,7 +1354,6 @@ function saveProduct() {
                 </div>
             </div>
 
-            <!-- FOOTER -->
             <div style="margin-top: 50px; border-top: 1px solid #ddd; padding-top: 10px; display: flex; justify-content: space-between; font-size: 12px; color: #666;">
                 <div>Authorized Signature</div>
                 <div>Thank you for your business!</div>
@@ -1179,7 +1361,6 @@ function saveProduct() {
         </div>
     `;
     
-    // Inject and Print
     document.getElementById('print-area').innerHTML = html;
     window.print();
 }
