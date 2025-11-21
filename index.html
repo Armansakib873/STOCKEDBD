@@ -120,7 +120,18 @@
         
         /* --- 7. MODALS & PRINT --- */
         .modal { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(2px); }
-        .modal-box { background: white; padding: 25px; border-radius: 12px; width: 500px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); animation: popIn 0.2s; max-height: 90vh; overflow-y: auto; }
+       .modal-box {
+    background: #ffffff;
+    width: 650px; /* Slightly wider */
+    max-width: 95vw;
+    padding: 30px;
+    border-radius: 16px; /* Softer corners */
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    position: relative;
+}
         @keyframes popIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
         .tag { padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; }
@@ -180,12 +191,101 @@
         .print-header { display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 20px; }
         
         /* --- SEARCH DROPDOWN IN MODAL --- */
-.search-wrapper { position: relative; margin-bottom: 15px; }
-.search-results { 
-    position: absolute; top: 100%; left: 0; width: 100%; 
-    background: white; border: 1px solid var(--border); 
-    border-radius: 0 0 8px 8px; max-height: 200px; overflow-y: auto; 
-    z-index: 50; box-shadow: var(--shadow); display: none; 
+/* --- MAIN SPOTLIGHT SEARCH --- */
+.search-wrapper {
+    position: relative;
+    z-index: 50; /* Ensure dropdown floats above everything */
+}
+.search-input {
+    width: 100%;
+    padding: 14px 18px;
+    padding-left: 45px; /* Space for icon */
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    font-size: 15px;
+    transition: all 0.2s;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z' /%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: 15px center;
+    background-size: 20px;
+}
+
+.search-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+}
+/* --- SEARCH RESULTS DROPDOWN --- */
+.search-results {
+    position: absolute;
+    top: 110%;
+    left: 0;
+    width: 100%;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    max-height: 300px;
+    overflow-y: auto;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    display: none;
+    animation: slideDown 0.1s ease-out;
+}
+
+@keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+.search-result-row {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.1s;
+}
+
+.search-result-row:hover { background-color: #f8fafc; }
+.search-result-row:last-child { border-bottom: none; }
+
+.res-title { font-weight: 600; color: var(--text-main); display: block; }
+.res-sub { font-size: 12px; color: var(--text-muted); font-family: monospace; }
+.res-stock { font-size: 11px; background: #e2e8f0; padding: 3px 8px; border-radius: 12px; font-weight: 600; }
+
+/* --- FEEDBACK ALERTS (UID & NAME) --- */
+.feedback-box {
+    margin-top: 6px;
+    font-size: 12px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    display: none; /* Hidden by default */
+    animation: fadeIn 0.2s;
+    line-height: 1.4;
+}
+
+/* 1. Success (Unique UID) */
+.fb-success {
+    background-color: #f0fdf4;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+}
+
+/* 2. Error (Duplicate UID) */
+.fb-error {
+    background-color: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+}
+
+/* 3. Warning (Similar Name) */
+.fb-warning {
+    background-color: #fff7ed;
+    color: #c2410c;
+    border: 1px solid #fed7aa;
+}
+
+.fb-link {
+    text-decoration: underline;
+    font-weight: 700;
+    cursor: pointer;
+    margin-left: 5px;
 }
 .search-item { padding: 10px; border-bottom: 1px solid #f1f5f9; cursor: pointer; display: flex; justify-content: space-between; }
 .search-item:hover { background: #f8fafc; color: var(--primary); }
@@ -440,58 +540,81 @@
     
 <!-- MODAL: PRODUCT & VARIANT MASTER -->
 <div id="modal-prod" class="modal">
-    <div class="modal-box" style="width: 600px;">
-        <h2 id="m-title">Product Manager</h2>
-        
-        <!-- Smart Search -->
-        <div class="search-wrapper">
-            <input id="p-search" placeholder="🔍 Scan/Type UID to Edit Existing..." 
-                   onkeyup="searchForModal(this.value)" 
-                   style="background: #f8fafc; border: 1px solid var(--primary); font-weight: bold;">
-            <div id="p-results" class="search-results"></div>
+    <div class="modal-box">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h2 id="m-title" style="margin:0;">Product Manager</h2>
+            <button onclick="closeModal('modal-prod')" style="background:none; border:none; font-size:20px; cursor:pointer;">&times;</button>
         </div>
+        
+        <!-- 1. MAIN SPOTLIGHT SEARCH -->
+       <div class="search-wrapper">
+    <input id="p-search" class="search-input" 
+           placeholder="Scan Barcode, Type Name or UID to Edit..." 
+           onkeyup="searchForModal(this.value)" 
+           autocomplete="off">
+    <div id="p-results" class="search-results"></div>
+</div>
 
         <input type="hidden" id="p-id"> 
 
-        <!-- MASTER DETAILS -->
-        <div style="display:grid; gap:15px; border-bottom: 2px dashed #e2e8f0; padding-bottom: 15px; margin-bottom: 15px;">
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+        <!-- MASTER DETAILS SECTION -->
+        <div style="background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:15px;">
+                <!-- UID INPUT WITH FEEDBACK -->
                 <div>
-                    <label>Master UID (Style Code)</label>
-                    <input id="p-uid" placeholder="e.g. 1001">
+                    <label style="font-size:12px; font-weight:600; color:#64748b;">Master UID (Style Code)</label>
+                    <input id="p-uid" placeholder="e.g. 1001" onkeyup="checkMasterUid(this.value)" autocomplete="off">
+                    <!-- The Feedback Div -->
+                    <div id="uid-feedback" class="feedback-box"></div>
                 </div>
                 <div>
-                    <label>Category</label>
-                    <select id="p-cat" style="padding:9px;"></select>
+                    <label style="font-size:12px; font-weight:600; color:#64748b;">Category</label>
+                    <select id="p-cat" style="padding:10px;"></select>
                 </div>
             </div>
-            <div><label>Product Name</label><input id="p-name"></div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
-                <div><label>Supplier</label><input id="p-sup"></div>
-                <div><label>Buy Price</label><input type="number" id="p-buy"></div>
-                <div><label>Sell Price</label><input type="number" id="p-sell"></div>
+            
+            <!-- NAME INPUT WITH FEEDBACK -->
+            <div style="margin-bottom:15px;">
+                <label style="font-size:12px; font-weight:600; color:#64748b;">Product Name</label>
+                <input id="p-name" onkeyup="checkMasterName(this.value)" autocomplete="off">
+                <!-- The Feedback Div -->
+                <div id="name-feedback" class="feedback-box"></div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:15px;">
+                <div><label style="font-size:12px; font-weight:600; color:#64748b;">Supplier</label><input id="p-sup"></div>
+                <div><label style="font-size:12px; font-weight:600; color:#64748b;">Buy Price</label><input type="number" id="p-buy"></div>
+                <div><label style="font-size:12px; font-weight:600; color:#64748b;">Sell Price</label><input type="number" id="p-sell"></div>
             </div>
         </div>
 
-        <!-- VARIANT BUILDER -->
+        <!-- VARIANT BUILDER (No changes to logic, just wrapper) -->
         <div>
-            <h4 style="margin:0 0 10px 0;">Variants (Stock)</h4>
-            <div style="display:flex; gap:5px; background: #f8fafc; padding: 10px; border-radius: 6px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <h4 style="margin:0;">Variants & Stock</h4>
+                <span style="font-size:11px; color:#64748b;">Total Stock: <span id="v-total-display">0</span></span>
+            </div>
+            
+            <div style="display:flex; gap:10px; margin-bottom:10px;">
                 <input id="v-color" placeholder="Color (e.g. Red)" style="flex:1">
                 <input id="v-size" placeholder="Size (e.g. XL)" style="flex:1">
-                <input type="number" id="v-qty" placeholder="Qty" style="width:70px;">
+                <input type="number" id="v-qty" placeholder="Qty" style="width:80px;">
                 <button class="btn btn-primary" onclick="addVariantRow()">+ Add</button>
             </div>
             
-            <table class="variant-table">
-                <thead><tr><th>SKU (Auto)</th><th>Color</th><th>Size</th><th>Stock</th><th>Action</th></tr></thead>
-                <tbody id="variant-list"></tbody>
-            </table>
+            <div style="max-height: 150px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+                <table class="variant-table" style="margin:0;">
+                    <thead style="position:sticky; top:0; background:#f1f5f9;">
+                        <tr><th>SKU</th><th>Color</th><th>Size</th><th>Stock</th><th>Action</th></tr>
+                    </thead>
+                    <tbody id="variant-list"></tbody>
+                </table>
+            </div>
         </div>
 
-        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+        <div style="display:flex; justify-content:flex-end; gap:10px; padding-top:10px; border-top: 1px solid #e2e8f0;">
             <button class="btn btn-sec" onclick="closeModal('modal-prod')">Cancel</button>
-            <button class="btn btn-primary" onclick="saveProduct()">💾 Save Master & Variants</button>
+            <button class="btn btn-primary" onclick="saveProduct()">💾 Save Product</button>
         </div>
     </div>
 </div>
@@ -620,11 +743,17 @@
 let tempVariants = [];
 
 function openProdModal() {
+    // ... existing code ...
     document.getElementById('m-title').innerText = "Add New Product";
     document.getElementById('p-id').value = "";
     document.querySelectorAll('#modal-prod input').forEach(i => i.value = "");
     
-    // Clear Variant Table
+    // --- ADD THESE LINES ---
+    document.getElementById('uid-feedback').style.display = 'none';
+    document.getElementById('name-feedback').style.display = 'none';
+    // ----------------------
+
+    // ... rest of existing code ...
     tempVariants = [];
     renderVariantTable();
     
@@ -695,43 +824,117 @@ function renderVariantTable() {
     `).join('');
 }
 
+// --- ADVANCED SEARCH FOR MODAL ---
+
+function searchForModal(q) {
+    const resDiv = document.getElementById('p-results');
+    
+    // 1. Hide if empty
+    if (!q || q.trim().length < 1) {
+        resDiv.style.display = 'none';
+        return;
+    }
+    
+    const term = q.toLowerCase().trim();
+
+    // 2. Filter Database
+    const matches = db.products.filter(p => {
+        // Safe check for fields in case they are undefined
+        const name = (p.name || "").toLowerCase();
+        const uid = (p.uid || "").toLowerCase();
+        const sup = (p.sup || "").toLowerCase();
+        
+        // A. Check Master Details
+        if (name.includes(term) || uid.includes(term) || sup.includes(term)) {
+            return true;
+        }
+
+        // B. Check Child Variants (e.g., Scanning a specific sub-SKU)
+        if (p.variants && p.variants.length > 0) {
+            // Check if ANY variant sku matches the search term
+            return p.variants.some(v => v.sku.toLowerCase().includes(term));
+        }
+
+        return false;
+    });
+
+    // 3. Render Results
+    if (matches.length > 0) {
+        resDiv.style.display = 'block';
+        resDiv.innerHTML = matches.slice(0, 10).map(p => `
+            <div class="search-item" onclick="fillModalFromSearch(${p.id})">
+                <div style="display:flex; flex-direction:column; gap:2px;">
+                    <div>
+                        <strong style="color:var(--primary);">${p.name}</strong> 
+                        <small style="color:#64748b; font-family:monospace;">[${p.uid}]</small>
+                    </div>
+                    <div style="font-size:11px; color:#64748b;">
+                        Supplier: ${p.sup || 'N/A'}
+                    </div>
+                </div>
+                <div style="text-align:right;">
+                    <span style="font-size:12px; background:#f1f5f9; padding:2px 6px; border-radius:4px; font-weight:bold;">
+                        Stock: ${p.stock}
+                    </span>
+                    <br>
+                    <small style="font-size:10px; color:#94a3b8;">Click to Edit</small>
+                </div>
+            </div>
+        `).join('');
+    } else {
+        resDiv.style.display = 'none';
+    }
+}
+
 function saveProduct() {
     const id = document.getElementById('p-id').value;
+    const uid = document.getElementById('p-uid').value || "GEN-" + Date.now();
+    
+    // --- SECURITY CHECK: DUPLICATE UID ---
+    // Check if any product has this UID, BUT exclude the product we are currently editing
+    const duplicate = db.products.find(p => p.uid.toLowerCase() === uid.toLowerCase() && p.id != id);
+    
+    if(duplicate) {
+        alert(`STOP! The UID "${uid}" is already taken by "${duplicate.name}".\nYou cannot have two products with the same UID.`);
+        return; // Stop the function immediately
+    }
+    // -------------------------------------
+
     const obj = {
-        uid: document.getElementById('p-uid').value || "GEN-" + Date.now(),
+        uid: uid,
         name: document.getElementById('p-name').value,
         cat: document.getElementById('p-cat').value || "General",
         sup: document.getElementById('p-sup').value,
         buy: Number(document.getElementById('p-buy').value),
         sell: Number(document.getElementById('p-sell').value),
-        variants: tempVariants // Save the array
+        variants: tempVariants 
     };
 
-    // Calculate Total Stock for display purposes
+    // Calculate Master Stock
     obj.stock = tempVariants.reduce((sum, v) => sum + v.stock, 0);
 
-    if(!obj.name || !obj.sell) return alert("Name and Price required!");
+    if(!obj.name || !obj.sell) return alert("Name and Sell Price required!");
     if(tempVariants.length === 0) return alert("Add at least one variant/stock!");
 
     if(id) {
+        // UPDATE
         const idx = db.products.findIndex(x => x.id == id);
         if(idx > -1) {
             obj.id = Number(id);
             db.products[idx] = obj;
             
-            // Log Update
             if(!db.productLogs) db.productLogs = [];
             db.productLogs.unshift({
                 date: new Date().toISOString(),
                 name: obj.name, uid: obj.uid, 
-                added: 0, type: 'Info/Stock Update', finalStock: obj.stock
+                added: 0, type: 'Info Update', finalStock: obj.stock
             });
         }
     } else {
+        // CREATE NEW
         obj.id = Date.now();
         db.products.push(obj);
         
-        // Log Creation
         if(!db.productLogs) db.productLogs = [];
         db.productLogs.unshift({
             date: new Date().toISOString(),
@@ -744,6 +947,7 @@ function saveProduct() {
     closeModal('modal-prod');
     renderInv();
     renderPOS();
+    alert("Saved Successfully!");
 }
 
         function delProd(id) {
@@ -1237,6 +1441,121 @@ function updateCartTotals() {
                 if(!r.innerHTML.includes('🔴')) r.style.display = 'none';
             });
         }
+
+
+
+
+        // --- REAL-TIME DUPLICATE CHECKER ---
+
+/* --- UPDATED FEEDBACK LOGIC --- */
+
+function checkMasterUid(val) {
+    const box = document.getElementById('uid-feedback');
+    const currentId = document.getElementById('p-id').value;
+    
+    // Reset classes
+    box.className = 'feedback-box'; 
+    
+    if(!val) { box.style.display = 'none'; return; }
+
+    const exist = db.products.find(p => p.uid.toLowerCase() === val.toLowerCase());
+
+    if(exist) {
+        if(currentId && exist.id == currentId) {
+            box.style.display = 'none'; // Valid (Editing self)
+            return;
+        }
+        // ERROR: Duplicate
+        box.classList.add('fb-error');
+        box.style.display = 'block';
+        box.innerHTML = `
+            <span>⛔ <b>UID Taken!</b> product "${exist.name}" uses this code.</span>
+            <span class="fb-link" onclick="fillModalFromSearch(${exist.id})">Edit "${exist.name}" instead?</span>
+        `;
+    } else {
+        // SUCCESS: Unique
+        box.classList.add('fb-success');
+        box.style.display = 'block';
+        box.innerHTML = `<span>✅ <b>Available!</b> This UID is unique.</span>`;
+    }
+}
+
+function checkMasterName(val) {
+    const box = document.getElementById('name-feedback');
+    
+    // Reset
+    box.className = 'feedback-box';
+    
+    if(!val) { box.style.display = 'none'; return; }
+
+    const similar = db.products.filter(p => p.name.toLowerCase().includes(val.toLowerCase()));
+    
+    if(similar.length > 0) {
+        // WARNING: Similar names exist
+        box.classList.add('fb-warning');
+        box.style.display = 'block';
+        const links = similar.slice(0,3).map(p => 
+            `<span class="fb-link" onclick="fillModalFromSearch(${p.id})">${p.name}</span>`
+        ).join(', ');
+        
+        box.innerHTML = `<span>💡 <b>Similar Products:</b> ${links}</span>`;
+    } else {
+        box.style.display = 'none';
+    }
+}
+
+// Update the Search Result Renderer to match new CSS
+/* --- FIXED MAIN SEARCH FOR MODAL --- */
+function searchForModal(q) {
+    const resDiv = document.getElementById('p-results');
+    
+    // 1. Safety Check: Hide if input is empty
+    if (!q || q.trim().length < 1) {
+        resDiv.style.display = 'none';
+        return;
+    }
+    
+    const term = q.toLowerCase().trim();
+
+    // 2. Filter Logic: Search EVERYWHERE (Name, UID, Supplier, Variants)
+    const matches = db.products.filter(p => {
+        // Safe access to strings
+        const name = (p.name || "").toLowerCase();
+        const uid = (p.uid || "").toLowerCase();
+        const sup = (p.sup || "").toLowerCase();
+        
+        // A. Check Master Details
+        if (name.includes(term) || uid.includes(term) || sup.includes(term)) {
+            return true;
+        }
+
+        // B. Check Child Variants (e.g. searching "RED" or a specific SKU)
+        if (p.variants && p.variants.length > 0) {
+            return p.variants.some(v => v.sku.toLowerCase().includes(term));
+        }
+
+        return false;
+    });
+
+    // 3. Render UI: Uses the new CSS classes
+    if (matches.length > 0) {
+        resDiv.style.display = 'block';
+        resDiv.innerHTML = matches.slice(0, 10).map(p => `
+            <div class="search-result-row" onclick="fillModalFromSearch(${p.id})">
+                <div style="display:flex; flex-direction:column;">
+                    <span class="res-title">${p.name}</span>
+                    <span class="res-sub">UID: ${p.uid} • Sup: ${p.sup || 'N/A'}</span>
+                </div>
+                <div style="text-align:right;">
+                    <span class="res-stock">Stock: ${p.stock}</span>
+                </div>
+            </div>
+        `).join('');
+    } else {
+        resDiv.style.display = 'none';
+    }
+}
+
 
         /* --- 6. UTILS, SETTINGS & PRINT --- */
         function updateCatDropdowns() {
