@@ -557,6 +557,9 @@
 
         <input type="hidden" id="p-id"> 
 
+
+        
+
         <!-- MASTER DETAILS SECTION -->
         <div style="background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:15px;">
@@ -627,6 +630,23 @@
         <div id="v-select-grid" class="v-selector-grid"></div>
         <div style="text-align:right; margin-top:15px;">
             <button class="btn btn-sec" onclick="closeModal('modal-v-select')">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: VIEW TRANSACTION DETAILS -->
+<div id="modal-trx" class="modal">
+    <div class="modal-box">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <h3 style="margin:0;">Transaction Details</h3>
+            <button onclick="closeModal('modal-trx')" style="background:none; border:none; font-size:24px; cursor:pointer; color:var(--text-muted);">&times;</button>
+        </div>
+        
+        <!-- This container is where JS injects the bill details -->
+        <div id="trx-content" style="max-height: 70vh; overflow-y: auto;"></div>
+
+        <div style="text-align:right; margin-top:15px; pt-3; border-top:1px solid var(--border);">
+            <button class="btn btn-sec" onclick="closeModal('modal-trx')">Close</button>
         </div>
     </div>
 </div>
@@ -886,20 +906,34 @@ function searchForModal(q) {
     }
 }
 
+// HELPER: Centralized Logging for Variants
+function addLog(prodName, prodUid, variantSku, variantDetails, qtyChange, type, currentStock) {
+    if (!db.productLogs) db.productLogs = [];
+    
+    db.productLogs.unshift({
+        date: new Date().toISOString(),
+        name: prodName,
+        uid: prodUid,
+        sku: variantSku || "N/A", // NEW: Track SKU
+        variant: variantDetails || "Std", // NEW: Track Color/Size
+        added: qtyChange,
+        type: type,
+        finalStock: currentStock
+    });
+}
+
 function saveProduct() {
     const id = document.getElementById('p-id').value;
     const uid = document.getElementById('p-uid').value || "GEN-" + Date.now();
     
-    // --- SECURITY CHECK: DUPLICATE UID ---
-    // Check if any product has this UID, BUT exclude the product we are currently editing
+    // 1. DUPLICATE CHECK (Master Level)
     const duplicate = db.products.find(p => p.uid.toLowerCase() === uid.toLowerCase() && p.id != id);
-    
     if(duplicate) {
-        alert(`STOP! The UID "${uid}" is already taken by "${duplicate.name}".\nYou cannot have two products with the same UID.`);
-        return; // Stop the function immediately
+        alert(`STOP! The UID "${uid}" is already taken by "${duplicate.name}".`);
+        return; 
     }
-    // -------------------------------------
 
+    // 2. PREPARE NEW DATA OBJECT
     const obj = {
         uid: uid,
         name: document.getElementById('p-name').value,
@@ -916,30 +950,39 @@ function saveProduct() {
     if(!obj.name || !obj.sell) return alert("Name and Sell Price required!");
     if(tempVariants.length === 0) return alert("Add at least one variant/stock!");
 
+    // 3. DETAILED LOGGING LOGIC
     if(id) {
-        // UPDATE
+        // --- UPDATE EXISTING PRODUCT ---
         const idx = db.products.findIndex(x => x.id == id);
         if(idx > -1) {
+            const oldProd = db.products[idx];
             obj.id = Number(id);
-            db.products[idx] = obj;
             
-            if(!db.productLogs) db.productLogs = [];
-            db.productLogs.unshift({
-                date: new Date().toISOString(),
-                name: obj.name, uid: obj.uid, 
-                added: 0, type: 'Info Update', finalStock: obj.stock
+            // Compare Old Variants vs New Variants to log changes
+            obj.variants.forEach(newV => {
+                const oldV = oldProd.variants ? oldProd.variants.find(ov => ov.sku === newV.sku) : null;
+                const oldQty = oldV ? oldV.stock : 0;
+                const diff = newV.stock - oldQty;
+
+                if (diff !== 0) {
+                    const type = diff > 0 ? 'Stock Added' : 'Stock Adjusted';
+                    addLog(obj.name, obj.uid, newV.sku, `${newV.color}/${newV.size}`, diff, type, newV.stock);
+                }
             });
+
+            // Handle newly created variants that didn't exist before
+            // (Covered by the logic above if oldV is undefined, diff becomes newV.stock)
+
+            db.products[idx] = obj;
         }
     } else {
-        // CREATE NEW
+        // --- CREATE NEW PRODUCT ---
         obj.id = Date.now();
         db.products.push(obj);
         
-        if(!db.productLogs) db.productLogs = [];
-        db.productLogs.unshift({
-            date: new Date().toISOString(),
-            name: obj.name, uid: obj.uid, 
-            added: obj.stock, type: 'Created', finalStock: obj.stock
+        // Log entry for EVERY variant
+        obj.variants.forEach(v => {
+            addLog(obj.name, obj.uid, v.sku, `${v.color}/${v.size}`, v.stock, 'Initial Stock', v.stock);
         });
     }
 
@@ -1165,14 +1208,14 @@ function updateCartTotals() {
     document.getElementById('c-total').innerText = "৳" + Math.round(totalPayable + del);
 }
 
-       function processCheckout() {
-    if(cart.length === 0) return alert("Cart Empty");
-    
+   function processCheckout() {
+    if(cart.length === 0) return alert("Cart is Empty!");
+
     let grossSub = 0;
     let netTotal = 0;
-    const del = Number(document.getElementById('c-del').value);
+    const del = Number(document.getElementById('c-del').value) || 0;
 
-    // Prepare Items with finalized pricing
+    // 1. PREPARE ITEMS & CALCULATE TOTALS
     const finalItems = cart.map(c => {
         const unitGross = c.actualSell;
         const unitDisc = unitGross * (c.discPercent / 100);
@@ -1182,20 +1225,51 @@ function updateCartTotals() {
         netTotal += (unitFinal * c.qty);
         
         return {
-            ...c,
-            unitFinalPrice: unitFinal, // STORE THIS FOR RETURNS
-            discountAmt: unitDisc * c.qty
+            id: c.id,              // Master ID
+            uid: c.uid,            // Master UID
+            sku: c.sku,            // Specific Variant SKU
+            name: c.name,
+            color: c.color,        // Variant Detail
+            size: c.size,          // Variant Detail
+            qty: c.qty,
+            buy: c.buy,
+            actualSell: c.actualSell, // Original Price
+            discPercent: c.discPercent,
+            unitFinalPrice: unitFinal, // Price after discount
+            sup: c.sup
         };
     });
 
     const grandTotal = netTotal + del;
     const totalDiscount = grossSub - netTotal;
-
-    // Calculate Profit (Final Selling Price - Buy Price)
+    
+    // Calculate Profit
     const profit = finalItems.reduce((acc, item) => {
         return acc + ((item.unitFinalPrice - item.buy) * item.qty);
     }, 0);
 
+    // 2. DEDUCT STOCK FROM DB (CRITICAL FIX)
+    finalItems.forEach(cartItem => {
+        // Find Master Product
+        const product = db.products.find(p => p.id === cartItem.id);
+        
+        if (product) {
+            if (product.variants && product.variants.length > 0) {
+                // Find Specific Variant by SKU
+                const variant = product.variants.find(v => v.sku === cartItem.sku);
+                if (variant) {
+                    variant.stock -= cartItem.qty;
+                }
+                // Recalculate Master Stock Sum
+                product.stock = product.variants.reduce((sum, v) => sum + v.stock, 0);
+            } else {
+                // Fallback for old non-variant products
+                product.stock -= cartItem.qty;
+            }
+        }
+    });
+
+    // 3. CREATE TRANSACTION OBJECT
     const trx = {
         id: "INV-" + Date.now().toString().slice(-6),
         date: new Date().toISOString(),
@@ -1203,35 +1277,29 @@ function updateCartTotals() {
         cust: document.getElementById('cust-name').value || "Guest",
         phone: document.getElementById('cust-phone').value || "",
         items: finalItems,
-        sub: grossSub, 
+        sub: Math.round(grossSub), 
         del: del, 
-        disc: totalDiscount, // Total discount value
+        disc: Math.round(totalDiscount), 
         total: Math.round(grandTotal), 
         profit: Math.round(profit)
     };
 
-    // Update Stock
-    trx.items.forEach(i => {
-        const p = db.products.find(x => x.id === i.id);
-        if(p && p.variants) {
-            const v = p.variants.find(v => v.sku === i.sku);
-            if(v) v.stock -= i.qty;
-            // Recalculate total stock for master
-            p.stock = p.variants.reduce((sum, v) => sum + v.stock, 0);
-        } else if (p) {
-            // Fallback for old data
-            p.stock -= i.qty;
-        }
-    });
+    // 4. SAVE TO DB
+    db.transactions.unshift(trx);
+    save();
     
-    // Reset
+    // 5. TRIGGER PRINT
+    printReceipt(trx);
+    
+    // 6. RESET POS
     cart = [];
     document.getElementById('c-del').value = 0;
     document.getElementById('c-disc-global').value = "";
     document.getElementById('cust-name').value = "";
     document.getElementById('cust-phone').value = "";
     renderCart();
-    renderPOS();
+    renderPOS(); // Refresh grid to show new stock levels
+    renderDash(); // Update dashboard stats
 }
 
         /* --- 4. HISTORY & RETURNS --- */
@@ -1263,98 +1331,149 @@ function updateCartTotals() {
             });
         }
 
-       function viewTrx(id) {
+function viewTrx(id) {
+    // 1. Find the transaction
     const t = db.transactions.find(x => x.id === id);
     
+    if (!t) {
+        console.error("Transaction ID not found:", id);
+        return alert("Error: Transaction not found in database.");
+    }
+
+    // 2. Build Header
     let html = `
-        <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-            <div><strong>ID:</strong> ${t.id}</div>
-            <div>${new Date(t.date).toLocaleString()}</div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:10px; align-items:center;">
+            <div>
+                <span style="font-size:18px; font-weight:bold; color:var(--primary);">Bill: ${t.id}</span>
+            </div>
+            <div style="font-size:12px; color:#64748b;">${new Date(t.date).toLocaleString()}</div>
         </div>
-        <div style="background:#f8fafc; padding:10px; border-radius:6px; margin-bottom:10px;">
-            <strong>Customer:</strong> ${t.cust}<br>
-            <strong>Phone:</strong> ${t.phone || 'N/A'}
+        
+        <div style="background:#f8fafc; padding:12px; border-radius:8px; margin-bottom:15px; border:1px solid #e2e8f0; font-size:13px;">
+            <div style="display:flex; justify-content:space-between;">
+                <span><strong>Customer:</strong> ${t.cust || 'Guest'}</span>
+                <span><strong>Phone:</strong> ${t.phone || 'N/A'}</span>
+            </div>
         </div>
+
         <table style="width:100%; border-collapse:collapse; font-size:13px;">
-            <thead style="background:#f1f5f9;">
+            <thead style="background:#f1f5f9; color:#475569;">
                 <tr>
-                    <th style="padding:8px; text-align:left;">Item</th>
-                    <th>Rate</th>
-                    <th>Qty</th>
-                    <th>Disc%</th>
-                    <th>Total</th>
-                    <th>Action</th>
+                    <th style="padding:10px; text-align:left; border-bottom:2px solid #e2e8f0;">Item Details</th>
+                    <th style="padding:10px; text-align:center; border-bottom:2px solid #e2e8f0;">Price</th>
+                    <th style="padding:10px; text-align:center; border-bottom:2px solid #e2e8f0;">Qty</th>
+                    <th style="padding:10px; text-align:center; border-bottom:2px solid #e2e8f0;">Disc</th>
+                    <th style="padding:10px; text-align:right; border-bottom:2px solid #e2e8f0;">Total</th>
+                    <th style="padding:10px; text-align:center; border-bottom:2px solid #e2e8f0;">Action</th>
                 </tr>
             </thead>
             <tbody>
     `;
-    
+
+    // 3. Loop Items (With Safety Checks)
     t.items.forEach((i, idx) => {
         const isRet = i.isReturned === true;
-        const status = isRet ? '<span class="tag tag-return">RETURNED</span>' : '';
         
-        // Handle data fallbacks for old records
-        const unitPrice = i.actualSell;
-        const disc = i.discPercent || 0;
-        const finalPrice = i.unitFinalPrice || unitPrice;
+        // SAFETY CHECKS: Handle missing data from old versions
+        const name = i.name || "Unknown Item";
+        const sku = i.sku || i.uid || "";
+        const variantInfo = (i.color || i.size) ? `(${i.color || ''}/${i.size || ''})` : "";
+        
+        // Price Logic (Fallback to simple calculation if new fields missing)
+        const unitPrice = Number(i.actualSell || 0);
+        const discPct = Number(i.discPercent || 0);
+        // If unitFinalPrice exists, use it. Otherwise calculate it.
+        const finalPrice = i.unitFinalPrice !== undefined ? Number(i.unitFinalPrice) : (unitPrice - (unitPrice * discPct / 100));
+        
         const lineTotal = (i.qty * finalPrice).toFixed(2);
         
+        // Styles
+        const rowStyle = isRet ? 'background:#fff1f2; color:#991b1b;' : 'border-bottom:1px solid #f1f5f9;';
+        const textStyle = isRet ? 'text-decoration:line-through; opacity:0.7;' : '';
+        const statusBadge = isRet ? '<br><span class="tag tag-return" style="font-size:10px;">RETURNED</span>' : '';
+
         html += `
-            <tr style="border-bottom:1px solid #eee; ${isRet ? 'background:#fff1f2;' : ''}">
-                <td style="padding:8px;">
-                    <b>${i.name}</b> ${status}
+            <tr style="${rowStyle}">
+                <td style="padding:10px;">
+                    <div style="${textStyle}"><b>${name}</b></div>
+                    <div style="font-size:11px; color:#64748b;">${sku} ${variantInfo}</div>
+                    ${statusBadge}
                 </td>
-                <td style="text-align:center;">${unitPrice}</td>
-                <td style="text-align:center;">${i.qty}</td>
-                <td style="text-align:center; color:red;">${disc}%</td>
-                <td style="text-align:center; font-weight:bold;">${lineTotal}</td>
+                <td style="text-align:center; ${textStyle}">${unitPrice}</td>
+                <td style="text-align:center; ${textStyle}">${i.qty}</td>
+                <td style="text-align:center; ${textStyle}">${discPct}%</td>
+                <td style="text-align:right; font-weight:bold; ${textStyle}">${lineTotal}</td>
                 <td style="text-align:center;">
                      ${t.type === 'sale' && !isRet ? 
-                       `<button class="btn btn-danger btn-sm" onclick="processReturn('${t.id}', ${idx})">↩ Return</button>` : 
+                       `<button class="btn btn-danger btn-sm" style="padding:4px 8px;" onclick="processReturn('${t.id}', ${idx})">↩</button>` : 
                        '-'
                      }
                 </td>
             </tr>
         `;
     });
-    
+
+    // 4. Footer Totals
     html += `</tbody></table>
-        <div style="text-align:right; margin-top:15px; border-top:2px solid #eee; padding-top:10px;">
-            <p style="margin:2px 0;">Subtotal (Gross): ${t.sub}</p>
-            <p style="margin:2px 0; color:red;">Total Discount: -${t.disc}</p>
-            <p style="margin:2px 0;">Delivery: +${t.del}</p>
-            <h3 style="margin:5px 0;">Total Paid: ৳${t.total}</h3>
+        <div style="text-align:right; margin-top:20px; padding-top:15px; border-top:2px solid #e2e8f0;">
+            <div style="margin-bottom:5px; color:#64748b;">Subtotal: <span style="color:#0f172a;">${t.sub || 0}</span></div>
+            <div style="margin-bottom:5px; color:#ef4444;">Discount: -${t.disc || 0}</div>
+            <div style="margin-bottom:5px; color:#64748b;">Delivery: +${t.del || 0}</div>
+            <div style="font-size:18px; font-weight:800; color:var(--primary); margin-top:10px;">
+                Total Paid: ৳${t.total || 0}
+            </div>
         </div>`;
-    
-    document.getElementById('trx-content').innerHTML = html;
-    document.getElementById('modal-trx').style.display = 'flex';
+
+    // 5. Inject and Show
+    const contentDiv = document.getElementById('trx-content');
+    const modalDiv = document.getElementById('modal-trx');
+
+    if (contentDiv && modalDiv) {
+        contentDiv.innerHTML = html;
+        modalDiv.style.display = 'flex';
+    } else {
+        console.error("Modal elements missing in HTML");
+    }
 }
-       function processReturn(tid, idx) {
-    if(!confirm("Process Return? Amount will be calculated based on SOLD price.")) return;
+    function processReturn(tid, idx) {
+    if(!confirm("Process Return? Stock will be restored to specific Variation.")) return;
     
     const orgTrx = db.transactions.find(x => x.id === tid);
     const item = orgTrx.items[idx];
 
     if(item.isReturned) return alert("Item already returned!");
 
-    // Restore Stock
+    // 1. RESTORE STOCK TO SPECIFIC VARIANT
     const prod = db.products.find(p => p.id === item.id);
+    
     if(prod) {
-        prod.stock += item.qty;
-        // Log...
-        if(!db.productLogs) db.productLogs = [];
-        db.productLogs.unshift({
-            date: new Date().toISOString(),
-            name: prod.name, uid: prod.uid, added: item.qty, type: 'Customer Return', finalStock: prod.stock
-        });
+        // Find the specific variant using SKU
+        let variant = null;
+        if(prod.variants) {
+            variant = prod.variants.find(v => v.sku === item.sku);
+        }
+
+        if(variant) {
+            // Update Variant Stock
+            variant.stock += item.qty;
+            
+            // Recalculate Master Stock
+            prod.stock = prod.variants.reduce((sum, v) => sum + v.stock, 0);
+            
+            // LOG: Specific Variant Return
+            addLog(prod.name, prod.uid, variant.sku, `${variant.color}/${variant.size}`, item.qty, 'Customer Return', variant.stock);
+        } else {
+            // Fallback for old data (Legacy support)
+            prod.stock += item.qty;
+            addLog(prod.name, prod.uid, "N/A", "General", item.qty, 'Customer Return (Legacy)', prod.stock);
+        }
     }
 
-    // Update Original Flag
+    // 2. UPDATE TRANSACTION STATUS
     item.isReturned = true;
     orgTrx.items[idx] = item;
 
-    // CALCULATE REFUND BASED ON DISCOUNTED PRICE
-    // Use unitFinalPrice which we saved during checkout
+    // 3. CREATE RETURN RECEIPT
     const refundAmount = item.qty * item.unitFinalPrice; 
     const reversedProfit = (item.unitFinalPrice - item.buy) * item.qty;
 
@@ -1368,7 +1487,7 @@ function updateCartTotals() {
         sub: -refundAmount, 
         del: 0, 
         disc: 0, 
-        total: -refundAmount, // This is now accurate to what they paid
+        total: -refundAmount, 
         profit: -reversedProfit
     };
 
@@ -1378,7 +1497,7 @@ function updateCartTotals() {
     closeModal('modal-trx');
     renderHistory(); 
     renderDash();
-    alert("Return Processed. Refund Amount: ৳" + refundAmount.toFixed(2));
+    alert("Return Processed. Stock Restored to Variant.");
 }
 
         /* --- 5. DASHBOARD LOGIC --- */
@@ -1590,17 +1709,9 @@ function searchForModal(q) {
             if(t) printReceipt(t);
         }
 
-       function printReceipt(t) {
+      function printReceipt(t) {
     const shop = db.settings || { name: "Shop Name", addr: "Address", phone: "Phone" };
     
-    // Helper to ensure we handle old data that might not have new fields
-    const getVal = (item) => {
-        const unitPrice = item.actualSell;
-        const disc = item.discPercent || 0;
-        const finalPrice = item.unitFinalPrice || unitPrice;
-        return { unitPrice, disc, finalPrice };
-    };
-
     const html = `
         <div style="max-width: 210mm; margin: 0 auto;">
             <div class="print-header">
@@ -1616,66 +1727,59 @@ function searchForModal(q) {
                 </div>
             </div>
 
-            <div style="margin-bottom: 20px;">
-                <strong>Bill To:</strong><br>
-                <span style="font-size: 16px;">${t.cust}</span><br>
-                Phone: ${t.phone || "N/A"}
+            <div style="margin-bottom: 20px; padding: 10px; border: 1px solid #eee; border-radius: 5px;">
+                <strong>Bill To:</strong> <span style="font-size: 16px;">${t.cust}</span>
+                <span style="float:right">Phone: ${t.phone || "N/A"}</span>
             </div>
 
             <table class="print-table">
                 <thead>
                     <tr>
                         <th style="width: 5%;">#</th>
-                        <th style="width: 40%;">Item</th>
-                        <th style="width: 15%; text-align: right;">Rate</th>
+                        <th style="width: 45%;">Item Description</th>
+                        <th style="width: 15%; text-align: center;">Rate</th>
                         <th style="width: 10%; text-align: center;">Qty</th>
-                        <th style="width: 15%; text-align: center;">Disc%</th>
+                        <th style="width: 10%; text-align: center;">Disc%</th>
                         <th style="width: 15%; text-align: right;">Amount</th>
                     </tr>
                 </thead>
                 <tbody>
-                    ${t.items.map((item, index) => {
-                        const { unitPrice, disc, finalPrice } = getVal(item);
-                        return `
+                    ${t.items.map((item, index) => `
                         <tr>
                             <td>${index + 1}</td>
                             <td>
-                                <b>${item.name}</b><br>
-                                <small style="color:#666;">${item.uid || item.id}</small>
+                                <b>${item.name}</b>
+                                <br><small style="color:#666;">${item.sku || item.uid} ${item.size ? `(${item.color}/${item.size})` : ''}</small>
                             </td>
-                            <td class="text-right">${unitPrice}</td>
+                            <td style="text-align: center;">${item.actualSell}</td>
                             <td style="text-align: center;">${item.qty}</td>
-                            <td style="text-align: center;">${disc}%</td>
-                            <td class="text-right">${(item.qty * finalPrice).toFixed(2)}</td>
-                        </tr>`;
-                    }).join('')}
+                            <td style="text-align: center;">${item.discPercent}%</td>
+                            <td class="text-right">${(item.qty * item.unitFinalPrice).toFixed(2)}</td>
+                        </tr>
+                    `).join('')}
                 </tbody>
             </table>
 
             <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
                 <div style="width: 250px;">
                     <div style="display: flex; justify-content: space-between; padding: 5px 0;">
-                        <span>Subtotal (Gross):</span>
-                        <span>${t.sub}</span>
+                        <span>Subtotal:</span> <span>${t.sub}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; padding: 5px 0; color: red;">
-                        <span>Total Discount:</span>
-                        <span>-${t.disc}</span>
+                        <span>Discount:</span> <span>-${t.disc}</span>
                     </div>
-                     <div style="display: flex; justify-content: space-between; padding: 5px 0;">
-                        <span>Delivery:</span>
-                        <span>+${t.del}</span>
+                    <div style="display: flex; justify-content: space-between; padding: 5px 0;">
+                        <span>Delivery:</span> <span>+${t.del}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; padding: 10px 0; border-top: 2px solid #000; font-weight: bold; font-size: 18px;">
-                        <span>Grand Total:</span>
-                        <span>৳${t.total}</span>
+                        <span>Grand Total:</span> <span>৳${t.total}</span>
                     </div>
                 </div>
             </div>
 
             <div style="margin-top: 50px; border-top: 1px solid #ddd; padding-top: 10px; display: flex; justify-content: space-between; font-size: 12px; color: #666;">
                 <div>Authorized Signature</div>
-                <div>Thank you for your business!</div>
+                <div>Software by STOCKED BD</div>
             </div>
         </div>
     `;
@@ -1734,31 +1838,40 @@ function renderHistory() {
     const tbody = document.getElementById('hist-body');
     tbody.innerHTML = "";
     
-    const q = document.getElementById('hist-search').value.toLowerCase(); // Search Query
+    const q = document.getElementById('hist-search').value.toLowerCase();
     const date = document.getElementById('hist-date').value;
     const type = document.getElementById('hist-type').value;
 
-    db.transactions.forEach(t => {
+    // Sort by Date Descending (Newest first)
+    const sortedTrx = [...db.transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    sortedTrx.forEach(t => {
         // Filter Logic
         if(date && !t.date.startsWith(date)) return;
         if(type && t.type !== type) return;
         
-        // Search Logic (ID, Cust Name, Phone)
-        const searchStr = (t.id + t.cust + t.phone).toLowerCase();
+        // Search Logic
+        const searchStr = (t.id + (t.cust||"") + (t.phone||"")).toLowerCase();
         if(q && !searchStr.includes(q)) return;
         
-        const tag = t.type === 'sale' ? '<span class="tag tag-sale">SALE</span>' : '<span class="tag tag-return">RETURN</span>';
+        const tag = t.type === 'sale' ? 
+            '<span class="tag tag-sale">SALE</span>' : 
+            '<span class="tag tag-return">RETURN</span>';
         
         tbody.innerHTML += `
             <tr>
-                <td>${t.id}</td>
-                <td>${new Date(t.date).toLocaleString()}</td>
+                <td style="font-family:monospace; color:var(--primary);">${t.id}</td>
+                <td style="font-size:12px;">${new Date(t.date).toLocaleString()}</td>
                 <td>${tag}</td>
-                <td>${t.cust}<br><small>${t.phone}</small></td>
+                <td>
+                    <div style="font-weight:600;">${t.cust || 'Guest'}</div>
+                    <div style="font-size:11px; color:#64748b;">${t.phone || ''}</div>
+                </td>
                 <td style="font-weight:bold;">৳${t.total}</td>
                 <td>
-                    <button class="btn btn-sec btn-sm" onclick='viewTrx("${t.id}")'>👁</button>
-                    <button class="btn btn-sec btn-sm" onclick='printReceiptById("${t.id}")'>🖨</button>
+                    <!-- ENSURE ID IS QUOTED CORRECTLY -->
+                    <button class="btn btn-sec btn-sm" onclick="viewTrx('${t.id}')" title="View Details">👁</button>
+                    <button class="btn btn-sec btn-sm" onclick="printReceiptById('${t.id}')" title="Print Receipt">🖨</button>
                 </td>
             </tr>
         `;
@@ -1768,26 +1881,50 @@ function renderHistory() {
 // New Product Log Renderer
 function renderProductLogs() {
     const tbody = document.getElementById('log-body');
+    
+    // Update Header (DOM Manipulation purely via JS to avoid HTML edits)
+    const theadRow = document.querySelector('#view-logs thead tr');
+    if(theadRow.children.length === 6) {
+        // Inject a new header column if it doesn't exist yet
+        const th = document.createElement('th');
+        th.innerText = "Variant (SKU)";
+        theadRow.insertBefore(th, theadRow.children[3]); // Insert after Product Name
+    }
+
     tbody.innerHTML = "";
     const q = document.getElementById('log-search').value.toLowerCase();
 
     if(!db.productLogs) return;
 
     db.productLogs.forEach(log => {
-        // Filter by Name or UID
-        if(q && !log.name.toLowerCase().includes(q) && !log.uid.toLowerCase().includes(q)) return;
+        // Filter logic
+        const searchStr = (log.name + log.uid + (log.sku||"")).toLowerCase();
+        if(q && !searchStr.includes(q)) return;
 
-        // Color code the type
-        let typeColor = log.type === 'Created' ? 'blue' : 'green';
-        if(log.type === 'Update Info') typeColor = 'gray';
+        // Color code
+        let typeColor = 'gray';
+        if(log.type.includes('Initial')) typeColor = 'blue';
+        if(log.type.includes('Added')) typeColor = 'green';
+        if(log.type.includes('Return')) typeColor = '#b91c1c';
+
+        // Handle legacy logs that might not have sku/variant fields
+        const variantDisplay = log.sku ? 
+            `<b>${log.variant}</b><br><small style="color:#64748b">${log.sku}</small>` : 
+            `<span style="color:#ccc">Master</span>`;
 
         tbody.innerHTML += `
             <tr>
                 <td style="font-size:12px;">${new Date(log.date).toLocaleString()}</td>
                 <td><b style="color:${typeColor}">${log.type}</b></td>
                 <td>${log.name}</td>
+                
+                <!-- NEW VARIANT COLUMN -->
+                <td>${variantDisplay}</td>
+                
                 <td style="font-family:monospace;">${log.uid}</td>
-                <td style="font-weight:bold; color:green;">+${log.added}</td>
+                <td style="font-weight:bold; color:${log.added > 0 ? 'green' : 'red'};">
+                    ${log.added > 0 ? '+' : ''}${log.added}
+                </td>
                 <td>${log.finalStock}</td>
             </tr>
         `;
