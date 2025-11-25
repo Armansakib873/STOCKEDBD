@@ -279,178 +279,235 @@ main {
     color: var(--text-main);
 }
 
-/* --- 5. ENHANCED POS SYSTEM --- */
+/* --- OPTIMIZED POS LAYOUT --- */
+
+/* 1. Main Container Adjustment */
 .pos-container {
     display: grid;
-    grid-template-columns: 1fr 450px;
-    gap: 24px;
-    height: calc(100vh - 140px);
+    /* Reduced cart width from 450px to 360px to give product grid more room */
+    grid-template-columns: 1fr 360px; 
+    gap: 16px;
+    /* Calculates exact height to prevent body scroll */
+    height: calc(100vh - 100px); 
+    padding-bottom: 10px;
 }
 
+/* 2. Left Side (Search + Grid) */
 .pos-left {
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 12px;
     overflow: hidden;
+    height: 100%;
 }
 
+/* Compact Search Bar Area */
+.search-bar-container {
+    display: flex;
+    gap: 10px;
+    height: 45px; /* Fixed height for consistency */
+}
+
+.search-bar-container input {
+    flex: 1;
+    height: 100%;
+}
+
+.search-bar-container select {
+    width: 150px;
+    height: 100%;
+}
+
+/* 3. Denser Product Grid */
 .product-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 16px;
+    /* Smaller minimum width (130px) allows more columns */
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); 
+    gap: 10px;
     overflow-y: auto;
     padding: 4px;
+    padding-bottom: 60px; /* Space for scrolling */
     align-content: start;
 }
 
-.product-grid::-webkit-scrollbar {
-    width: 8px;
-}
-
-.product-grid::-webkit-scrollbar-track {
-    background: var(--border-light);
-    border-radius: 4px;
-}
-
-.product-grid::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 4px;
-}
-
-.product-grid::-webkit-scrollbar-thumb:hover {
-    background: var(--text-muted);
-}
-
+/* Compact POS Card */
 .pos-card {
     background: var(--bg-surface);
-    border: 2px solid var(--border);
-    padding: 16px;
-    border-radius: var(--radius);
+    border: 1px solid var(--border); /* Thinner border */
+    padding: 10px; /* Reduced padding */
+    border-radius: var(--radius-sm);
     cursor: pointer;
     position: relative;
     transition: var(--transition);
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    min-height: 140px;
+    justify-content: space-between;
+    gap: 4px;
+    min-height: 100px; /* Reduced min-height */
 }
 
 .pos-card:hover {
     border-color: var(--primary);
-    box-shadow: var(--shadow-lg);
-    transform: translateY(-4px);
+    box-shadow: var(--shadow);
+    transform: translateY(-2px);
+}
+
+.pos-card h4 {
+    margin: 0;
+    font-size: 13px; /* Slightly smaller font */
+    line-height: 1.2;
+    font-weight: 700;
+    color: var(--text-main);
+    padding-right: 20px; /* Make room for stock tag */
+}
+
+.pos-card .code {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.pos-card .price {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--primary);
+    margin-top: 4px;
 }
 
 .stock-tag {
     position: absolute;
-    top: 10px;
-    right: 10px;
+    top: 6px;
+    right: 6px;
     background: var(--primary-light);
     color: var(--primary);
-    font-size: 11px;
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-weight: 700;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
 }
 
+/* 4. Optimized Right Panel (Cart) */
 .pos-right {
     background: var(--bg-surface);
-    border: 2px solid var(--border);
+    border: 1px solid var(--border);
     border-radius: var(--radius);
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    box-shadow: var(--shadow-lg);
+    height: 100%; /* Fill container height */
+    box-shadow: var(--shadow);
 }
 
+/* Compact Cart Header */
 .cart-header {
-    padding: 20px;
-    border-bottom: 2px solid var(--border);
-    background: linear-gradient(to bottom, #f8fafc, #ffffff);
+    padding: 12px;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
 }
 
-.cart-header h3 {
-    margin: 0 0 15px 0;
-    font-size: 18px;
-    font-weight: 800;
-    color: var(--text-main);
+/* Customer Input Row - Compact */
+.customer-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
 }
 
+.customer-grid input {
+    padding: 8px;
+    font-size: 12px;
+}
+
+/* Scrollable Cart List Area */
 .cart-list {
-    flex: 1;
+    flex: 1; /* Takes up all available remaining space */
     overflow-y: auto;
     padding: 0;
-}
-
-.cart-list::-webkit-scrollbar {
-    width: 6px;
-}
-
-.cart-list::-webkit-scrollbar-track {
-    background: var(--border-light);
-}
-
-.cart-list::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 3px;
+    background: #fdfdfd;
 }
 
 .cart-item {
-    padding: 16px;
-    border-bottom: 1px dashed var(--border);
-    font-size: 13px;
-    transition: var(--transition);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-light);
+    font-size: 12px;
 }
 
-.cart-item:hover {
-    background: var(--border-light);
+.cart-item-top {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
 }
 
 .cart-controls {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-top: 8px;
+    gap: 6px;
 }
 
 .cart-input {
-    width: 70px;
-    padding: 6px 8px;
-    text-align: center;
-    border: 2px solid var(--border);
-    border-radius: var(--radius-sm);
-    font-weight: 600;
-    transition: var(--transition);
+    width: 50px;
+    padding: 4px;
+    font-size: 12px;
+    height: 28px;
 }
 
-.cart-input:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px var(--primary-light);
+.btn-icon-sm {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
 }
 
+/* Sticky Footer (Totals + Pay Button) */
 .cart-footer {
-    padding: 20px;
-    background: linear-gradient(to top, #f8fafc, #ffffff);
-    border-top: 2px solid var(--border);
+    padding: 12px;
+    background: #fff;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0; /* Prevents footer from shrinking */
+    box-shadow: 0 -4px 10px rgba(0,0,0,0.02);
 }
 
 .total-row {
+    margin-bottom: 6px;
+    font-size: 12px;
+}
+
+.input-sm-row {
     display: flex;
-    justify-content: space-between;
-    margin-bottom: 10px;
-    font-size: 14px;
-    color: var(--text-main);
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+}
+
+.input-sm-row input {
+    width: 70px;
+    padding: 4px;
+    text-align: right;
 }
 
 .grand-total {
-    font-size: 22px;
-    font-weight: 900;
-    color: var(--primary);
-    margin: 15px 0;
-    display: flex;
-    justify-content: space-between;
-    padding-top: 15px;
-    border-top: 3px double var(--border);
+    margin: 10px 0;
+    font-size: 18px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+}
+
+.btn-pay {
+    width: 100%;
+    padding: 12px;
+    font-size: 15px;
+    justify-content: center;
+}
+
+/* Responsive Tweak for smaller screens */
+@media (max-width: 1366px) {
+    .pos-container {
+        grid-template-columns: 1fr 320px; /* Even smaller cart on laptops */
+    }
+    
+    .product-grid {
+        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    }
 }
 
 /* --- 6. ENHANCED INVENTORY & TABLES --- */
@@ -1525,6 +1582,8 @@ async function loadAllData() {
         variants: p.variants || []
     }));
 
+   // ... inside loadAllData ...
+
     // 2. Fetch Transactions
     const { data: trxs, error: tErr } = await sb
         .from('transactions')
@@ -1545,20 +1604,22 @@ async function loadAllData() {
         disc: t.discount,
         total: t.total,
         profit: t.profit,
-        // --- TRANSLATION HAPPENS HERE ---
         items: t.transaction_items.map(i => ({
-            id: i.product_id,
+            // KEEP THE TRANSACTION ITEM PRIMARY KEY
+            db_item_id: i.id, 
+            product_id: i.product_id,
             name: i.name,
             sku: i.sku,
             qty: i.qty,
-            // Map DB columns to Frontend names
-            actualSell: i.sell_price,        // db: sell_price -> js: actualSell
-            discPercent: i.discount_percent, // db: discount_percent -> js: discPercent
-            unitFinalPrice: i.final_price,   // db: final_price -> js: unitFinalPrice
+            actualSell: i.sell_price,
+            discPercent: i.discount_percent,
+            unitFinalPrice: i.final_price,
             buy: i.buy_price,
             isReturned: i.is_returned
         }))
     }));
+    
+    // ... rest of the function ...
 
     // 3. Fetch Settings & Logs (No changes needed here)
     const { data: setts } = await sb.from('settings').select('*').single();
@@ -1569,6 +1630,9 @@ async function loadAllData() {
 
     const { data: cats } = await sb.from("categories").select("*").order("name");
     db.categories = cats || [];
+
+
+
 
     console.log("Data Sync Complete");
     loadCategoriesUI();
@@ -1814,68 +1878,78 @@ async function saveProduct() {
     if (!name || !sell_price) return alert("Name and Price required");
     if (tempVariants.length === 0) return alert("Add at least one variant");
 
-    const prodData = {
-        uid, name, category, supplier, buy_price, sell_price
-    };
+    const prodData = { uid, name, category, supplier, buy_price, sell_price };
+    let savedProductId;
 
-    let savedProduct;
+    try {
+        // 1. Save Product (Insert or Update)
+        if (!id) {
+            const { data, error } = await sb.from("products").insert(prodData).select().single();
+            if (error) throw error;
+            savedProductId = data.id;
+        } else {
+            const { data, error } = await sb.from("products").update(prodData).eq("id", id).select().single();
+            if (error) throw error;
+            savedProductId = data.id;
+        }
 
-    /* --------------------------------------------------
-       1. PRODUCT SAVE (Insert OR Update)
-    -------------------------------------------------- */
+        // 2. Clear Old Variants (Simplest way to handle updates)
+        await sb.from("variants").delete().eq("product_id", savedProductId);
 
-    if (!id) {
-        // NEW PRODUCT → INSERT
-        const { data, error } = await sb
-            .from("products")
-            .insert(prodData)
-            .select()
-            .single();
+        // 3. Prepare Variants & Logs
+        const logEntries = [];
+        const variantRows = [];
         
-        if (error) return alert("Product Save Error: " + error.message);
-        savedProduct = data;
+        // Loop through the temporary variants in the modal
+        tempVariants.forEach(v => {
+            const stockVal = Number(v.stock);
+            
+            // Build Variant Row
+            variantRows.push({
+                product_id: savedProductId,
+                sku: v.sku,
+                color: v.color,
+                size: v.size,
+                stock: stockVal
+            });
 
-    } else {
-        // EXISTING PRODUCT → UPDATE
-        const { data, error } = await sb
-            .from("products")
-            .update(prodData)
-            .eq("id", id)
-            .select()
-            .single();
+            // Build Log Entry
+            logEntries.push({
+                date: new Date().toISOString(),
+                // Distinguish between New Product and Edit
+                action_type: id ? 'Stock Adjustment' : 'New Product - Initial Stock', 
+                product_name: name,
+                uid: uid,
+                sku: v.sku,
+                variant_details: `${v.color}/${v.size}`,
+                qty_change: stockVal, // For edits, we just log the current level
+                final_stock: stockVal
+            });
+        });
 
-        if (error) return alert("Product Save Error: " + error.message);
-        savedProduct = data;
+        // 4. Insert Variants
+        const { error: varErr } = await sb.from("variants").insert(variantRows);
+        if (varErr) throw new Error("Variant Error: " + varErr.message);
+
+        // 5. Insert Logs
+        const { error: logErr } = await sb.from("stock_logs").insert(logEntries);
+        if (logErr) console.error("Log Error (Non-fatal):", logErr.message);
+
+        // 6. Update Total Stock Cache
+        const totalStock = tempVariants.reduce((sum, v) => sum + Number(v.stock), 0);
+        await sb.from("products").update({ stock: totalStock }).eq("id", savedProductId);
+
+        // 7. Success
+        closeModal("modal-prod");
+        await loadAllData(); // This refreshes the logs in the UI
+        renderInv();
+        renderPOS();
+        alert("✅ Product Saved & Stock Logged!");
+
+    } catch (err) {
+        alert("❌ Error: " + err.message);
+        console.error(err);
     }
-
-    const productId = savedProduct.id;
-
-    /* --------------------------------------------------
-       2. VARIANT SAVE
-    -------------------------------------------------- */
-
-    await sb.from("variants").delete().eq("product_id", productId);
-
-    const variantRows = tempVariants.map(v => ({
-        product_id: productId,
-        sku: v.sku,
-        color: v.color,
-        size: v.size,
-        stock: Number(v.stock)
-    }));
-
-    const { error: varErr } = await sb.from("variants").insert(variantRows);
-    if (varErr) return alert("Variant Save Error: " + varErr.message);
-
-    /* --------------------------------------------------
-       3. FINISH
-    -------------------------------------------------- */
-
-    closeModal("modal-prod");
-    await loadAllData();
-    renderInv();
-    renderPOS();
-    alert("Product Saved!");
 }
 
 
@@ -2367,7 +2441,7 @@ function viewTrx(id) {
     html += `</tbody></table>
         <div style="text-align:right; margin-top:20px; padding-top:15px; border-top:2px solid #e2e8f0;">
             <div style="margin-bottom:5px; color:#64748b;">Subtotal: <span style="color:#0f172a;">${t.sub || 0}</span></div>
-            <div style="margin-bottom:5px; color:#ef4444;">Discount: -${t.disc || 0}</div>
+           <div style="margin-bottom:5px; color:#ef4444;">Discount: -${(t.disc || 0).toFixed(2)}</div>
             <div style="margin-bottom:5px; color:#64748b;">Delivery: +${t.del || 0}</div>
             <div style="font-size:18px; font-weight:800; color:var(--primary); margin-top:10px;">
                 Total Paid: ৳${t.total || 0}
@@ -2385,71 +2459,101 @@ function viewTrx(id) {
         console.error("Modal elements missing in HTML");
     }
 }
-    function processReturn(tid, idx) {
-    if(!confirm("Process Return? Stock will be restored to specific Variation.")) return;
-    
-    const orgTrx = db.transactions.find(x => x.id === tid);
-    const item = orgTrx.items[idx];
+   async function processReturn(trxId, itemIdx) {
+    if(!confirm("Process Return? This will:\n1. Restock the item\n2. Refund the customer\n3. Create a return log")) return;
 
-    if(item.isReturned) return alert("Item already returned!");
-
-    // 1. RESTORE STOCK TO SPECIFIC VARIANT
-    const prod = db.products.find(p => p.id === item.id);
+    // 1. Find Data locally
+    const trx = db.transactions.find(t => t.id === trxId);
+    if (!trx) return alert("Transaction not found. Please refresh.");
     
-    if(prod) {
-        // Find the specific variant using SKU
-        let variant = null;
-        if(prod.variants) {
-            variant = prod.variants.find(v => v.sku === item.sku);
+    const item = trx.items[itemIdx];
+    
+    // Prevent double returns on the same item
+    if (item.isReturned) return alert("Item already returned!");
+
+    try {
+        const returnId = "RET-" + Date.now().toString().slice(-6);
+
+        // --- A. RESTOCK THE VARIANT ---
+        // Get current stock
+        const { data: vData } = await sb.from('variants').select('*').eq('sku', item.sku).single();
+        
+        let finalStockVal = 0;
+        if (vData) {
+            finalStockVal = vData.stock + item.qty;
+            await sb.from('variants').update({ stock: finalStockVal }).eq('sku', item.sku);
         }
 
-        if(variant) {
-            // Update Variant Stock
-            variant.stock += item.qty;
-            
-            // Recalculate Master Stock
-            prod.stock = prod.variants.reduce((sum, v) => sum + v.stock, 0);
-            
-            // LOG: Specific Variant Return
-            addLog(prod.name, prod.uid, variant.sku, `${variant.color}/${variant.size}`, item.qty, 'Customer Return', variant.stock);
-        } else {
-            // Fallback for old data (Legacy support)
-            prod.stock += item.qty;
-            addLog(prod.name, prod.uid, "N/A", "General", item.qty, 'Customer Return (Legacy)', prod.stock);
-        }
+        // --- B. MARK ORIGINAL SALES ITEM AS RETURNED ---
+        // This crosses it out in the original bill
+        await sb.from('transaction_items')
+            .update({ is_returned: true })
+            .eq('id', item.db_item_id); 
+
+        // --- C. CREATE STOCK LOG ---
+        await sb.from('stock_logs').insert({
+            date: new Date().toISOString(),
+            action_type: 'Customer Return',
+            product_name: item.name,
+            uid: returnId,
+            sku: item.sku,
+            variant_details: "Restock from Return",
+            qty_change: item.qty,
+            final_stock: finalStockVal
+        });
+
+        // --- D. CREATE RETURN TRANSACTION HEADER ---
+        const refundAmt = item.qty * item.unitFinalPrice;
+        const reversedProfit = (item.unitFinalPrice - item.buy) * item.qty;
+
+        const returnHeader = {
+            id: returnId,
+            date: new Date().toISOString(),
+            type: 'return',
+            customer_name: trx.cust,
+            customer_phone: trx.phone,
+            subtotal: -refundAmt,
+            delivery_fee: 0,
+            discount: 0,
+            total: -refundAmt,
+            profit: -reversedProfit
+        };
+
+        const { error: headErr } = await sb.from('transactions').insert(returnHeader);
+        if(headErr) throw new Error("Header Error: " + headErr.message);
+
+        // --- E. CREATE RETURN TRANSACTION ITEM (THE MISSING PART) ---
+        // This is what makes the item show up in the View/Print modal
+        const returnItemRow = {
+            transaction_id: returnId,
+            product_id: item.product_id,
+            uid: item.uid || 'N/A',
+            sku: item.sku,
+            name: item.name,
+            qty: item.qty,
+            buy_price: item.buy,
+            sell_price: item.actualSell,
+            discount_percent: item.discPercent,
+            final_price: item.unitFinalPrice,
+            total_line_amount: -refundAmt, // Negative line total
+            is_returned: true // Mark as a return item
+        };
+
+        const { error: itemErr } = await sb.from('transaction_items').insert(returnItemRow);
+        if(itemErr) throw new Error("Item Error: " + itemErr.message);
+
+        // --- F. FINISH ---
+        alert("✅ Return Processed & Logged!");
+        closeModal('modal-trx');
+        await loadAllData(); 
+        renderHistory();
+        renderDash();
+
+    } catch (err) {
+        console.error(err);
+        alert("❌ Error: " + err.message);
     }
-
-    // 2. UPDATE TRANSACTION STATUS
-    item.isReturned = true;
-    orgTrx.items[idx] = item;
-
-    // 3. CREATE RETURN RECEIPT
-    const refundAmount = item.qty * item.unitFinalPrice; 
-    const reversedProfit = (item.unitFinalPrice - item.buy) * item.qty;
-
-    const retTrx = {
-        id: "RET-" + Date.now().toString().slice(-6),
-        date: new Date().toISOString(),
-        type: 'return',
-        cust: orgTrx.cust, 
-        phone: orgTrx.phone,
-        items: [{...item}],
-        sub: -refundAmount, 
-        del: 0, 
-        disc: 0, 
-        total: -refundAmount, 
-        profit: -reversedProfit
-    };
-
-    db.transactions.unshift(retTrx);
-    save();
-    
-    closeModal('modal-trx');
-    renderHistory(); 
-    renderDash();
-    alert("Return Processed. Stock Restored to Variant.");
 }
-
         /* --- 5. DASHBOARD LOGIC --- */
   function renderDash() {
     const today = new Date().toISOString().slice(0, 10);
@@ -2715,7 +2819,7 @@ async function saveSettings() {
                             </td>
                             <td style="text-align: center;">${item.actualSell}</td>
                             <td style="text-align: center;">${item.qty}</td>
-                            <td style="text-align: center;">${item.discPercent}%</td>
+                           <td style="text-align: center;">${(item.discPercent || 0).toFixed(2)}%</td>
                             <td class="text-right">${(item.qty * item.unitFinalPrice).toFixed(2)}</td>
                         </tr>
                     `).join('')}
@@ -2728,7 +2832,7 @@ async function saveSettings() {
                         <span>Subtotal:</span> <span>${t.sub}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; padding: 5px 0; color: red;">
-                        <span>Discount:</span> <span>-${t.disc}</span>
+                     <span>Discount:</span> <span>- ${(t.disc || 0).toFixed(2)}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; padding: 5px 0;">
                         <span>Delivery:</span> <span>+${t.del}</span>
@@ -2966,56 +3070,58 @@ function renderHistory() {
 // New Product Log Renderer
 function renderProductLogs() {
     const tbody = document.getElementById('log-body');
-    
-    // Update Header (DOM Manipulation purely via JS to avoid HTML edits)
-    const theadRow = document.querySelector('#view-logs thead tr');
-    if(theadRow.children.length === 6) {
-        // Inject a new header column if it doesn't exist yet
-        const th = document.createElement('th');
-        th.innerText = "Variant (SKU)";
-        theadRow.insertBefore(th, theadRow.children[3]); // Insert after Product Name
-    }
-
-    tbody.innerHTML = "";
     const q = document.getElementById('log-search').value.toLowerCase();
 
-    if(!db.productLogs) return;
+    // Clear table
+    tbody.innerHTML = "";
+
+    if(!db.productLogs || db.productLogs.length === 0) {
+        tbody.innerHTML = "<tr><td colspan='6' style='text-align:center; padding:20px;'>No logs found</td></tr>";
+        return;
+    }
 
     db.productLogs.forEach(log => {
-        // Filter logic
-        const searchStr = (log.name + log.uid + (log.sku||"")).toLowerCase();
+        // 1. FIX: Map Database Columns to Variables correctly
+        const action = log.action_type || log.type || "Unknown"; // Handle both names
+        const date = new Date(log.date).toLocaleString();
+        const name = log.product_name || "N/A";
+        const sku = log.sku || log.variant_details || "";
+        const uid = log.uid || "";
+        const change = log.qty_change || 0;
+        const final = log.final_stock || 0;
+
+        // Search Filter
+        const searchStr = (name + sku + uid + action).toLowerCase();
         if(q && !searchStr.includes(q)) return;
 
-        // Color code
-        let typeColor = 'gray';
-        if(log.type.includes('Initial')) typeColor = 'blue';
-        if(log.type.includes('Added')) typeColor = 'green';
-        if(log.type.includes('Return')) typeColor = '#b91c1c';
-
-        // Handle legacy logs that might not have sku/variant fields
-        const variantDisplay = log.sku ? 
-            `<b>${log.variant}</b><br><small style="color:#64748b">${log.sku}</small>` : 
-            `<span style="color:#ccc">Master</span>`;
+        // Color Coding
+        let typeColor = '#334155'; // Default dark gray
+        let qtyColor = '#334155';
+        
+        if(action.includes('Initial') || action.includes('New')) typeColor = '#2563eb'; // Blue
+        if(action.includes('Sale')) typeColor = '#059669'; // Green
+        if(action.includes('Return')) typeColor = '#dc2626'; // Red
+        
+        if(change > 0) qtyColor = '#16a34a'; // Green text for addition
+        if(change < 0) qtyColor = '#dc2626'; // Red text for reduction
 
         tbody.innerHTML += `
-            <tr>
-                <td style="font-size:12px;">${new Date(log.date).toLocaleString()}</td>
-                <td><b style="color:${typeColor}">${log.type}</b></td>
-                <td>${log.name}</td>
-                
-                <!-- NEW VARIANT COLUMN -->
-                <td>${variantDisplay}</td>
-                
-                <td style="font-family:monospace;">${log.uid}</td>
-                <td style="font-weight:bold; color:${log.added > 0 ? 'green' : 'red'};">
-                    ${log.added > 0 ? '+' : ''}${log.added}
+            <tr style="border-bottom:1px solid #f1f5f9;">
+                <td style="font-size:12px; color:#64748b;">${date}</td>
+                <td><b style="color:${typeColor}">${action}</b></td>
+                <td>
+                    <div style="font-weight:600;">${name}</div>
+                    <div style="font-size:11px; color:#94a3b8;">${uid}</div>
                 </td>
-                <td>${log.finalStock}</td>
+                <td style="font-size:12px; font-family:monospace;">${sku}</td>
+                <td style="font-weight:bold; color:${qtyColor};">
+                    ${change > 0 ? '+' : ''}${change}
+                </td>
+                <td>${final}</td>
             </tr>
         `;
     });
 }
-
     </script>
 </body>
 </html>
