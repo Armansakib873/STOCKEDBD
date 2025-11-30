@@ -1493,6 +1493,16 @@ input[type="number"]::-webkit-outer-spin-button {
                     <div class="stat-label">Net Profit (Today)</div>
                     <div class="stat-value" style="color: var(--success);" id="d-profit">0</div>
                 </div>
+
+                   <!-- NEW: DUE AMOUNT CARD -->
+    <div class="stat-box" onclick="nav('due-section')" style="cursor:pointer;">
+        <div class="stat-label">Total Outstanding Due</div>
+        <div class="stat-value" style="color: var(--warning);" id="d-due">0</div>
+        <div style="font-size:11px; color:var(--text-muted); margin-top:5px;">Click to manage dues</div>
+    </div>
+    <!-- END NEW CARD -->
+
+
                 <div class="stat-box alert" onclick="filterLowStock()">
                     <div class="stat-label">Low Stock Items</div>
                     <div class="stat-value" id="d-low">0</div>
@@ -3352,30 +3362,36 @@ function viewTrx(id) {
     }
 }
         /* --- 5. DASHBOARD LOGIC --- */
-  function renderDash() {
+ function renderDash() {
     const today = new Date().toISOString().slice(0, 10);
     
-    // Filter transactions for TODAY
+    // 1. Filter transactions for TODAY
     const dailyTrx = db.transactions.filter(t => t.date.startsWith(today));
     
-    // Calculate Net Totals (Sales + Returns)
-    // Since Returns are negative numbers, simply adding them works perfectly!
+    // 2. Calculate Daily Totals
     const netSales = dailyTrx.reduce((sum, t) => sum + t.total, 0);
     const netProfit = dailyTrx.reduce((sum, t) => sum + t.profit, 0);
     
-    // Low Stock Count
+    // 3. NEW: Calculate TOTAL DUE (All time, not just today)
+    // We look at ALL transactions, not just dailyTrx, because due remains until paid
+    const totalDue = db.transactions.reduce((sum, t) => sum + (Number(t.due_amount) || 0), 0);
+
+    // 4. Low Stock Count
     const low = db.products.filter(p => p.stock < 5).length;
     
-    // Update UI
+    // 5. Update UI
     document.getElementById('d-sales').innerText = "৳" + netSales.toLocaleString();
     document.getElementById('d-profit').innerText = "৳" + netProfit.toLocaleString();
+    
+    // Update the New Due Card
+    document.getElementById('d-due').innerText = "৳" + totalDue.toLocaleString();
+    
     document.getElementById('d-low').innerText = low;
     
-    // Top Selling Logic (Exclude Returns from "Top Selling" visual)
+    // ... (Keep the existing Top Selling & Recent Activity logic below) ...
     let counts = {};
     db.transactions.filter(t => t.type === 'sale').forEach(t => {
         t.items.forEach(i => {
-            // Don't count if it was returned later
             if (!i.isReturned) {
                 if (!counts[i.name]) counts[i.name] = { q: 0, rev: 0 };
                 counts[i.name].q += i.qty;
@@ -3389,7 +3405,6 @@ function viewTrx(id) {
         <tr><td>${k}</td><td>${counts[k].q}</td><td>৳${counts[k].rev}</td></tr>
     `).join('');
     
-    // Recent Activity List
     document.getElementById('recent-list').innerHTML = db.transactions.slice(0, 6).map(t => `
         <div style="padding:10px; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center;">
             <div>
@@ -3402,18 +3417,6 @@ function viewTrx(id) {
         </div>
     `).join('');
 }
-
-        function filterLowStock() {
-            nav('inventory');
-            // simple filter hack
-            const rows = document.querySelectorAll('#inv-body tr');
-            rows.forEach(r => {
-                if(!r.innerHTML.includes('🔴')) r.style.display = 'none';
-            });
-        }
-
-
-
 
         // --- REAL-TIME DUPLICATE CHECKER ---
 
