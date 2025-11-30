@@ -1321,9 +1321,14 @@ input[type="number"]::-webkit-outer-spin-button {
                 <div class="pos-left">
                     <div style="display:flex; gap:10px;">
                         <input type="text" id="pos-search" placeholder="Scan Barcode or Search Name..." onkeyup="renderPOS()" autofocus>
-                        <select id="pos-cat" onchange="renderPOS()" style="width:150px;">
-                            <option value="">All Categories</option>
-                        </select>
+  <select id="pos-cat" onchange="updatePosSubCats(); renderPOS()" style="width:150px;">
+    <option value="">All Categories</option>
+</select>
+
+                          <select id="pos-sub" onchange="renderPOS()" style="width:140px;">
+        <option value="">All Subcats</option>
+    </select>
+
                     </div>
                     <div class="product-grid" id="pos-grid"></div>
                 </div>
@@ -1391,10 +1396,15 @@ input[type="number"]::-webkit-outer-spin-button {
                 <div class="search-box">
                     <input id="inv-search" placeholder="Search by UID or Name..." onkeyup="renderInv()">
                 </div>
-                <select id="inv-cat-filter" onchange="renderInv()" style="width:180px;">
-                    <option value="">All Categories</option>
-                </select>
-                <button class="btn btn-primary" onclick="openProdModal()">+ Add New Product</button>
+ <select id="inv-cat-filter" onchange="updateInvSubCats(); renderInv()" style="width:180px;">
+    <option value="">All Categories</option>
+</select>
+
+                <select id="inv-sub-filter" onchange="renderInv()" style="width:150px;">
+    <option value="">All Subcats</option>
+</select>
+<button class="btn btn-primary" onclick="openProdModal()">+ Add New Product</button>
+
             </div>
             <div class="table-wrap">
                 <table>
@@ -1403,6 +1413,7 @@ input[type="number"]::-webkit-outer-spin-button {
                             <th onclick="sortInv('uid')">UID ↕</th>
                             <th onclick="sortInv('name')">Product Name ↕</th>
                             <th>Category</th>
+                             <th>Sub Cat</th>
                             <th>Supplier</th>
                             <th>Cost</th>
                             <th>Price</th>
@@ -1554,16 +1565,16 @@ input[type="number"]::-webkit-outer-spin-button {
                 </div>
 
                 
-                
-<div id="category-manager">
-    <h3>Manage Categories</h3>
-    <div id="cat-list"></div>
-    <h3>Categories</h3>
+<div id="category-manager" style="margin-top:20px; border-top:1px solid var(--border); padding-top:20px;">
+    <h3>Manage Categories & Subcategories</h3>
+    
     <div class="cat-input-container">
-        <input id="new-cat" placeholder="New Category Name">
-        <button class="btn-add-cat" onclick="addCategory()">Add</button>
+        <input id="new-cat" placeholder="New Main Category Name">
+        <button class="btn-add-cat" onclick="addCategory()">Add Category</button>
     </div>
-    <ul id="cat-list"></ul>
+
+    <!-- The list will now include subcategory inputs -->
+    <ul id="cat-list" style="list-style:none; padding:0;"></ul>
 </div>
 
 
@@ -1619,8 +1630,16 @@ input[type="number"]::-webkit-outer-spin-button {
                 </div>
                 <div>
                     <label style="font-size:12px; font-weight:600; color:#64748b;">Category</label>
-                    <select id="p-cat" style="padding:10px;"></select>
+                   <select id="p-cat" style="padding:10px;" onchange="updateModalSubCats()"></select>
                 </div>
+
+                <div>
+    <label style="font-size:12px; font-weight:600; color:#64748b;">Sub Category</label>
+    <select id="p-subcat" style="padding:10px;">
+        <option value="">Select Category First</option>
+    </select>
+</div>
+
             </div>
             
             <!-- NAME INPUT WITH FEEDBACK -->
@@ -1804,7 +1823,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Global State
-let db = { products: [], transactions: [], settings: {} };
+let db = { products: [], transactions: [], settings: {}, categories: [], subcategories: [] };
 let cart = [];
 let sortKey = 'name', sortAsc = true;
 let tempVariants = []; // Add this missing variable
@@ -1818,18 +1837,15 @@ window.onload = async () => {
     nav('dashboard');
     
     // 3. Render Category Managers
-    renderCategoryList();
-    updateCategoryDropdowns();
+    // Note: loadAllData() now calls loadCategoriesUI() automatically, 
+    // so we don't need to call anything here.
 };
 
 async function loadAllData() {
     console.log("Syncing with Supabase...");
     
     // 1. Fetch Products & Variants
-    const { data: prods, error: pErr } = await sb
-        .from('products')
-        .select(`*, variants(*)`); 
-    
+    const { data: prods, error: pErr } = await sb.from('products').select(`*, variants(*)`); 
     if(pErr) return alert("Error loading products: " + pErr.message);
 
     db.products = prods.map(p => ({
@@ -1837,6 +1853,7 @@ async function loadAllData() {
         uid: p.uid,
         name: p.name,
         cat: p.category,
+        subcategory: p.subcategory, // Ensure this is mapped
         sup: p.supplier,
         buy: p.buy_price,
         sell: p.sell_price,
@@ -1845,15 +1862,8 @@ async function loadAllData() {
     }));
 
    // 2. Fetch Transactions
-    const { data: trxs, error: tErr } = await sb
-        .from('transactions')
-        .select(`*, transaction_items(*)`)
-        .order('date', { ascending: false })
-        .limit(100);
-
-    if(tErr) console.error(tErr);
-
-    db.transactions = trxs.map(t => ({
+    const { data: trxs } = await sb.from('transactions').select(`*, transaction_items(*)`).order('date', { ascending: false }).limit(100);
+    db.transactions = trxs ? trxs.map(t => ({
         id: t.id,
         date: t.date,
         type: t.type,
@@ -1864,10 +1874,8 @@ async function loadAllData() {
         disc: t.discount,
         total: t.total,
         profit: t.profit,
-        // --- NEW FIELDS MAPPED HERE ---
-        paid_amount: Number(t.paid_amount || t.total), // Default to total if null (old records)
+        paid_amount: Number(t.paid_amount || t.total),
         due_amount: Number(t.due_amount || 0),
-        // -----------------------------
         items: t.transaction_items.map(i => ({
             db_item_id: i.id, 
             product_id: i.product_id,
@@ -1880,28 +1888,31 @@ async function loadAllData() {
             buy: i.buy_price,
             isReturned: i.is_returned
         }))
-    }));
+    })) : [];
 
-    // 3. Fetch Settings & Logs (No changes needed here)
+    // 3. Fetch Settings, Logs, Batches
     const { data: setts } = await sb.from('settings').select('*').single();
     if(setts) db.settings = { name: setts.shop_name, addr: setts.address, phone: setts.phone };
     
     const { data: logs } = await sb.from('stock_logs').select('*').order('date', {ascending:false}).limit(50);
     db.productLogs = logs || [];
 
+    const { data: batches } = await sb.from('inventory_batches').select('*').order('created_at', {ascending:false}).limit(50);
+    db.batches = batches || [];
+
+    // 4. FETCH CATEGORIES & SUBCATEGORIES
     const { data: cats } = await sb.from("categories").select("*").order("name");
     db.categories = cats || [];
 
-const { data: batches } = await sb.from('inventory_batches').select('*').order('created_at', {ascending:false}).limit(50);
-db.batches = batches || [];
+    const { data: subcats } = await sb.from("subcategories").select("*").order("name");
+    db.subcategories = subcats || [];
 
-
-
-
-    console.log("Data Sync Complete");
-    loadCategoriesUI();
+    console.log("Data Sync Complete. Categories:", db.categories.length, "Subcats:", db.subcategories.length);
+    
+// 5. UPDATE UI IMMEDIATELY
+    updateCategoryDropdowns(); // <--- Corrected Name
+    loadCategoriesUI();   
 }
-
 
         function nav(id) {
             document.querySelectorAll('.section').forEach(e => e.classList.remove('active'));
@@ -1919,16 +1930,19 @@ db.batches = batches || [];
         }
 
         /* --- 2. INVENTORY LOGIC --- */
-        function renderInv() {
-            const tbody = document.getElementById('inv-body');
-            tbody.innerHTML = "";
-            const q = document.getElementById('inv-search').value.toLowerCase();
-            const cat = document.getElementById('inv-cat-filter').value;
+   function renderInv() {
+    const tbody = document.getElementById('inv-body');
+    tbody.innerHTML = "";
+    const q = document.getElementById('inv-search').value.toLowerCase();
+    
+    const catFilter = document.getElementById('inv-cat-filter').value;
+    const subFilter = document.getElementById('inv-sub-filter').value; // NEW
 
-            let list = db.products.filter(p => 
-                (p.name.toLowerCase().includes(q) || p.uid.toLowerCase().includes(q)) &&
-                (cat === "" || p.cat === cat)
-            );
+    let list = db.products.filter(p => 
+        (p.name.toLowerCase().includes(q) || p.uid.toLowerCase().includes(q)) &&
+        (catFilter === "" || p.cat === catFilter) &&
+        (subFilter === "" || (p.subcategory || "") === subFilter) // NEW FILTER
+    );
 
             // Sort
             list.sort((a,b) => {
@@ -1939,28 +1953,32 @@ db.batches = batches || [];
 
             list.forEach(p => {
                 tbody.innerHTML += `
-                    <tr>
-                        <td style="font-family:monospace; color:var(--primary); font-weight:bold;">${p.uid}</td>
-                        <td>${p.name}</td>
-                        <td><span class="tag" style="background:#f1f5f9;">${p.cat}</span></td>
-                        <td>${p.sup}</td>
-                        <td>${p.buy}</td>
-                        <td>${p.sell}</td>
-                        <td>${p.stock} ${p.stock<5 ? '🔴' : ''}</td>
-                        <td>
-                            <button class="btn btn-sec btn-sm" onclick="editProd(${p.id})">✏️</button>
-                            <button class="btn btn-danger btn-sm" onclick="delProd(${p.id})">🗑</button>
-                        </td>
-                    </tr>
+  <tr>
+                <td style="font-family:monospace; color:var(--primary); font-weight:bold;">${p.uid}</td>
+                <td>${p.name}</td>
+                <td><span class="tag" style="background:#f1f5f9;">${p.cat}</span></td>
+                <td><small style="color:#64748b;">${p.subcategory || '-'}</small></td> <!-- NEW COL -->
+                <td>${p.sup || ''}</td>
+                <td>${p.buy}</td>
+                <td>${p.sell}</td>
+                <td>${p.stock} ${p.stock<5 ? '🔴' : ''}</td>
+                <td>
+                    <button class="btn btn-sec btn-sm" onclick="editProd(${p.id})">✏️</button>
+                    <button class="btn btn-danger btn-sm" onclick="delProd(${p.id})">🗑</button>
+                </td>
+            </tr>
                 `;
             });
         }
         
-        function editProd(id) {
-    // Reuse the logic we built for the search bar
-    // This ensures the modal opens and fills correctly
-    openProdModal(); // Open and reset first
-    fillModalFromSearch(id); // Fill with data
+function editProd(id) {
+    // 1. Open the modal first (Resets fields)
+    openProdModal(); 
+    
+    // 2. Fill it with data
+    fillModalFromSearch(id); 
+    
+    // 3. Update Title
     document.getElementById('m-title').innerText = "Edit Product Details";
 }
 
@@ -2000,29 +2018,48 @@ function fillModalFromSearch(id) {
     const p = db.products.find(x => x.id === id);
     if(!p) return;
 
+    // 2. Fill Basic Fields
     document.getElementById('p-id').value = p.id;
     document.getElementById('p-uid').value = p.uid;
-    document.getElementById('p-uid').readOnly = true;
+    document.getElementById('p-uid').readOnly = true; // Lock UID during edit
     document.getElementById('p-name').value = p.name;
     document.getElementById('p-cat').value = p.cat;
     document.getElementById('p-sup').value = p.sup;
     document.getElementById('p-sell').value = p.sell;
-
-    // --- COST HANDLING ---
-   document.getElementById('p-buy-base').value = "";
-    document.getElementById('p-buy-extra').value = "";
-    document.getElementById('calc-qty-display').innerText = "0";
-
-    document.getElementById('uid-feedback').style.display = 'none';
-    document.getElementById('name-feedback').style.display = 'none';
-
-    tempVariants = [];
-    renderVariantTable();
+    document.getElementById('p-buy-base').value = p.buy; 
+    document.getElementById('p-buy-extra').value = ""; // Reset extra cost
+    document.getElementById('p-buy').value = p.buy; // Final cost starts at current cost
+    updateModalSubCats(); 
+    document.getElementById('p-subcat').value = p.subcategory || "";
+    // 4. FILL VARIANTS (Explicit Mapping)
+    // We map the database columns to the UI format to ensure they appear
+    if (p.variants && p.variants.length > 0) {
+        tempVariants = p.variants.map(v => ({
+            sku: v.sku,
+            color: v.color || 'Std',
+            size: v.size || 'Std',
+            stock: Number(v.stock) // Ensure number
+        }));
+    } else {
+        // Fallback for old products with no variants
+        tempVariants = [{
+            sku: p.uid, 
+            color: 'Std', 
+            size: 'Std', 
+            stock: Number(p.stock)
+        }];
+    }
     
-    document.getElementById('p-uid').readOnly = false;
-    document.getElementById('modal-prod').style.display = 'flex';
-    setTimeout(() => document.getElementById('p-search').focus(), 100);
+    // 5. Update UI
+    renderVariantTable(); // This shows the rows in the table
+    calcLandedCost();     // This updates the summary footer (Total Qty/Inv)
+    
+    // 6. Hide Search Results
+    document.getElementById('p-results').style.display = 'none';
+    document.getElementById('p-search').value = "";
+    document.getElementById('m-title').innerText = "Edit Product / Add Stock";
 }
+
 // Add a row to the table (InMemory)
 function addVariantRow() {
      // 1. Get raw input values
@@ -2170,9 +2207,10 @@ async function saveProduct() {
     const id = document.getElementById('p-id').value; 
     const uid = document.getElementById('p-uid').value || "GEN-" + Date.now();
     const name = document.getElementById('p-name').value;
-    const category = document.getElementById('p-cat').value;
+     const category = document.getElementById('p-cat').value;
+    const subcategory = document.getElementById('p-subcat').value; // NEW
     const supplier = document.getElementById('p-sup').value;
-    const buy_price = Number(document.getElementById('p-buy').value); 
+const buy_price = Number(document.getElementById('p-buy').value);  
     const sell_price = Number(document.getElementById('p-sell').value);
 
     // Get Cost Details
@@ -2190,8 +2228,10 @@ async function saveProduct() {
     // Total Investment = (Unit Base * Qty) + Flat Extra Cost
     const totalBatchCost = (baseP * totalBatchQty) + extraC;
 
-    const prodData = { uid, name, category, supplier, buy_price, sell_price };
+    const prodData = { uid, name, category, subcategory, supplier, buy_price, sell_price };
     let savedProductId;
+
+
 
     try {
         // A. Save Product Master
@@ -2269,6 +2309,11 @@ async function saveProduct() {
         alert("❌ Error: " + err.message);
         console.error(err);
     }
+
+    // --- SAFETY CHECK ---
+if (!isFinite(buy_price) || isNaN(buy_price)) {
+    return alert("❌ Error: Invalid Cost Calculation. Please check your Quantity and Prices.");
+}
 }
 
 
@@ -2299,26 +2344,34 @@ async function delProd(id) {
 
 
         /* --- 3. POS LOGIC --- */
-       function renderPOS() {
+function renderPOS() {
     const grid = document.getElementById('pos-grid');
     grid.innerHTML = "";
     const q = document.getElementById('pos-search').value.toLowerCase();
+    
     const cat = document.getElementById('pos-cat').value;
+    const sub = document.getElementById('pos-sub').value; // NEW
 
     db.products.filter(p => 
         (p.name.toLowerCase().includes(q) || p.uid.toLowerCase().includes(q)) &&
-        (cat === "" || p.cat === cat) && p.stock > 0
+        (cat === "" || p.cat === cat) &&
+        (sub === "" || (p.subcategory || "") === sub) && // NEW FILTER
+        p.stock > 0
     ).forEach(p => {
-        grid.innerHTML += `
+        // ... (Keep existing POS card generation) ...
+         grid.innerHTML += `
             <div class="pos-card" onclick="addToCart(${p.id})">
                 <div class="stock-tag">${p.stock}</div>
                 <div style="font-weight:bold; font-size:14px;">${p.name}</div>
                 <div style="font-size:12px; color:var(--text-muted);">${p.uid}</div>
+                <div style="font-size:10px; color:#64748b;">${p.subcategory || ''}</div> <!-- Optional: Show Subcat -->
                 <div style="color:var(--primary); font-weight:bold; margin-top:auto;">৳${p.sell}</div>
             </div>
         `;
     });
 }
+
+
 function addToCart(idOrSku) {
     // 1. Try to find by specific Variant SKU first (Scanner behavior)
     let foundProd = null;
@@ -3398,35 +3451,40 @@ function calcLandedCost() {
     const basePrice = Number(document.getElementById('p-buy-base').value) || 0;
     const extraCost = Number(document.getElementById('p-buy-extra').value) || 0;
     
-    // 2. Get Total Quantity from the variant table
-    const totalQty = tempVariants.reduce((sum, v) => sum + v.stock, 0);
+    // 2. Get Total Quantity
+    const totalQty = tempVariants.reduce((sum, v) => sum + Number(v.stock), 0);
     
-    // 3. Calculate Final Unit Cost (Per Item)
+    // Update Display
+    if(document.getElementById('calc-qty-display')) {
+        document.getElementById('calc-qty-display').innerText = totalQty;
+    }
+
+    // 3. Calculate Final Unit Cost (SAFEGUARD ADDED)
     let finalCost = basePrice;
     
+    // Only divide if totalQty is greater than 0 to avoid "Infinity"
     if (totalQty > 0 && extraCost > 0) {
-        // Distribute extra cost across all items
         const costPerItem = extraCost / totalQty;
         finalCost = basePrice + costPerItem;
     }
 
-    // 4. Calculate Total Investment (Grand Total for this batch)
-    // Formula: (Base Price * Total Qty) + Total Extra Cost
+    // 4. Calculate Total Investment (Safeguard for Summary)
     const totalInvestment = (basePrice * totalQty) + extraCost;
 
     // 5. Update UI
-    // Unit Cost
-    document.getElementById('p-buy').value = parseFloat(finalCost.toFixed(2));
+    // Check if result is finite (valid number) before updating
+    if (isFinite(finalCost)) {
+        document.getElementById('p-buy').value = parseFloat(finalCost.toFixed(2));
+    } else {
+        document.getElementById('p-buy').value = basePrice;
+    }
     
-    // Summary Footer
-    document.getElementById('summary-total-qty').innerText = totalQty;
-    document.getElementById('summary-total-cost').innerText = totalInvestment.toLocaleString();
-    
-    // Also update the header display if you still kept it
-    const headerDisplay = document.getElementById('calc-qty-display');
-    if(headerDisplay) headerDisplay.innerText = totalQty;
+    // Update Summary Footer
+    if(document.getElementById('summary-total-qty')) {
+        document.getElementById('summary-total-qty').innerText = totalQty;
+        document.getElementById('summary-total-cost').innerText = totalInvestment.toLocaleString();
+    }
 }
-
 
         function exportData() {
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db));
@@ -3522,112 +3580,198 @@ async function factoryReset() {
     renderCategoryList();
     updateCategoryDropdowns();
 }
-/* --- UNIFIED CATEGORY MANAGER --- */
 
-// 1. Update all <select> dropdowns in the app
+/* --- NEW CATEGORY & SUBCATEGORY MANAGER --- */
+
+// 1. MASTER FUNCTION: Populates Main Category Dropdowns
 function updateCategoryDropdowns() {
-    const options = db.categories.map(c => `<option value="${c.name}">${c.name}</option>`).join("");
-    const defaultOpt = `<option value="">All Categories</option>`;
-    
-    // Update POS Filter
+    if (!db.categories) return;
+
+    // A. Prepare Options
+    let filterOptions = `<option value="">All Categories</option>`;
+    let modalOptions = `<option value="">Select Category</option>`;
+
+    db.categories.forEach(c => {
+        filterOptions += `<option value="${c.name}">${c.name}</option>`;
+        modalOptions += `<option value="${c.name}">${c.name}</option>`;
+    });
+
+    // B. Fill the DOM Elements
+    // POS Filter
     const posSelect = document.getElementById('pos-cat');
-    if(posSelect) posSelect.innerHTML = defaultOpt + options;
+    if (posSelect) posSelect.innerHTML = filterOptions;
 
-    // Update Inventory Filter
+    // Inventory Filter
     const invSelect = document.getElementById('inv-cat-filter');
-    if(invSelect) invSelect.innerHTML = defaultOpt + options;
+    if (invSelect) invSelect.innerHTML = filterOptions;
 
-    // Update Product Modal (No "All" option needed here)
+    // Product Modal
     const prodSelect = document.getElementById('p-cat');
-    if(prodSelect) prodSelect.innerHTML = `<option value="">Select Category</option>` + options;
+    if (prodSelect) prodSelect.innerHTML = modalOptions;
+
+    // C. Trigger Subcategory Updates (To reset them to "All" or "Select First")
+    updatePosSubCats();
+    updateInvSubCats();
+    updateModalSubCats();
 }
 
-// 2. Render the list in Settings > Manage Categories
-function renderCategoryList() {
+// 2. HELPER: Get Subcategories for a specific Main Category Name
+function getSubCatsFor(catName) {
+    if(!catName) return [];
+    const catObj = db.categories.find(c => c.name === catName);
+    if(!catObj) return [];
+    return db.subcategories.filter(s => s.category_id === catObj.id);
+}
+
+// 3. UPDATE POS SUBCATEGORY DROPDOWN
+function updatePosSubCats() {
+    const catName = document.getElementById('pos-cat').value;
+    const subSel = document.getElementById('pos-sub');
+    if(!subSel) return;
+
+    subSel.innerHTML = `<option value="">All Subcats</option>`;
+    
+    const subs = getSubCatsFor(catName);
+    subs.forEach(s => {
+        subSel.innerHTML += `<option value="${s.name}">${s.name}</option>`;
+    });
+}
+
+// 4. UPDATE INVENTORY SUBCATEGORY DROPDOWN
+function updateInvSubCats() {
+    const catName = document.getElementById('inv-cat-filter').value;
+    const subSel = document.getElementById('inv-sub-filter');
+    if(!subSel) return;
+
+    subSel.innerHTML = `<option value="">All Subcats</option>`;
+    
+    const subs = getSubCatsFor(catName);
+    subs.forEach(s => {
+        subSel.innerHTML += `<option value="${s.name}">${s.name}</option>`;
+    });
+}
+
+// 5. UPDATE MODAL SUBCATEGORY DROPDOWN
+function updateModalSubCats() {
+    const catName = document.getElementById('p-cat').value;
+    const subSel = document.getElementById('p-subcat');
+    if(!subSel) return;
+
+    if(!catName) {
+        subSel.innerHTML = `<option value="">Select Category First</option>`;
+        return;
+    }
+
+    subSel.innerHTML = `<option value="">Select Subcategory</option>`;
+    
+    const subs = getSubCatsFor(catName);
+    subs.forEach(s => {
+        subSel.innerHTML += `<option value="${s.name}">${s.name}</option>`;
+    });
+}
+
+/* --- SETTINGS: CATEGORY LIST MANAGER --- */
+
+// 6. Render the Nested List in Settings
+function loadCategoriesUI() {
     const list = document.getElementById("cat-list");
     if(!list) return;
-
-    list.innerHTML = db.categories.map(c => `
-        <li style="background: white; padding: 10px; margin-bottom: 8px; border: 1px solid #e2e8f0; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
-            <span>${c.name}</span>
-            <button onclick="deleteCategory(${c.id})" style="color: #ef4444; background: #fee2e2; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-weight: bold;">✕</button>
-        </li>
-    `).join('');
-}
-
-// 3. Add Category Logic
-async function addCategory() {
-    // Try to find input with either ID (you had duplicates in HTML)
-    const input = document.getElementById("new-cat") || document.getElementById("new-cat-name");
-    
-    if (!input || !input.value.trim()) return alert("Please enter a category name");
-    
-    const name = input.value.trim();
-
-    const { data, error } = await sb.from("categories").insert({ name }).select().single();
-    
-    if (error) return alert("Error: " + error.message);
-
-    // Update Local Data & UI immediately
-    db.categories.push(data);
-    updateCategoryDropdowns();
-    renderCategoryList();
-    
-    input.value = ""; // Clear input
-}
-
-// 4. Delete Category Logic
-async function deleteCategory(id) {
-    if (!confirm("Delete this category?")) return;
-
-    const { error } = await sb.from("categories").delete().eq("id", id);
-    if (error) return alert("Error: " + error.message);
-
-    // Update Local Data & UI immediately
-    db.categories = db.categories.filter(c => c.id !== id);
-    updateCategoryDropdowns();
-    renderCategoryList();
-}
-async function loadCategoriesUI() {
-    const list = document.getElementById("cat-list");
     list.innerHTML = "";
 
     db.categories.forEach(c => {
+        const mySubs = db.subcategories.filter(s => s.category_id === c.id);
+
+        let subHtml = mySubs.map(s => `
+            <div style="display:flex; justify-content:space-between; padding:5px 0 5px 20px; border-top:1px dashed #eee; font-size:13px; color:#64748b;">
+                <span>↳ ${s.name}</span>
+                <button onclick="delSubCategory(${s.id})" style="color:#ef4444; border:none; background:none; cursor:pointer;">&times;</button>
+            </div>
+        `).join('');
+
         list.innerHTML += `
-            <li style="margin-bottom:5px;">
-                ${c.name}
-                <button onclick="delCategory(${c.id})" 
-                    style="float:right; color:red; background:none; border:none;">
-                    ✖
-                </button>
+            <li style="background: white; padding: 15px; margin-bottom: 10px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom:10px;">
+                    <strong style="font-size:15px;">${c.name}</strong>
+                    <button onclick="delCategory(${c.id})" style="color: #ef4444; background: #fee2e2; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer;">Delete Cat</button>
+                </div>
+                
+                <div style="background:#f8fafc; border-radius:6px; padding:10px;">
+                    ${subHtml}
+                    <div style="display:flex; gap:5px; margin-top:8px;">
+                        <input id="new-sub-${c.id}" placeholder="Add Subcategory..." style="font-size:12px; padding:6px; border:1px solid #cbd5e1; border-radius:4px;">
+                        <button class="btn btn-sm btn-primary" onclick="addSubCategory(${c.id})">+</button>
+                    </div>
+                </div>
             </li>
         `;
     });
 }
 
+// 7. Add Main Category
 async function addCategory() {
-    const name = document.getElementById("new-cat").value.trim();
+    const input = document.getElementById("new-cat");
+    const name = input.value.trim();
     if (!name) return alert("Enter category name");
 
-    const { error } = await sb.from("categories").insert({name});
+    const { data, error } = await sb.from("categories").insert({name}).select().single();
     if (error) return alert(error.message);
 
-    await loadAllData();
-    updateCatDropdowns();
+    db.categories.push(data);
+    input.value = "";
+    
+    updateCategoryDropdowns();
     loadCategoriesUI();
-
-    document.getElementById("new-cat").value = "";
 }
 
+// 8. Delete Main Category
 async function delCategory(id) {
+    if(!confirm("Delete Category? This will delete all subcategories inside it.")) return;
     const { error } = await sb.from("categories").delete().eq("id", id);
     if (error) return alert(error.message);
 
-    await loadAllData();
-    updateCatDropdowns();
+    db.categories = db.categories.filter(c => c.id !== id);
+    // Remove related subcategories locally
+    db.subcategories = db.subcategories.filter(s => s.category_id !== id);
+
+    updateCategoryDropdowns();
     loadCategoriesUI();
 }
 
+// 9. Add Subcategory
+async function addSubCategory(catId) {
+    const input = document.getElementById(`new-sub-${catId}`);
+    const name = input.value.trim();
+    if (!name) return;
+
+    const { data, error } = await sb.from("subcategories").insert({
+        category_id: catId,
+        name: name
+    }).select().single();
+
+    if (error) return alert(error.message);
+
+    db.subcategories.push(data);
+    loadCategoriesUI();
+    
+    // Refresh subcat lists if a category is currently selected
+    updatePosSubCats();
+    updateInvSubCats();
+    updateModalSubCats();
+}
+
+// 10. Delete Subcategory
+async function delSubCategory(id) {
+    if(!confirm("Delete subcategory?")) return;
+    const { error } = await sb.from("subcategories").delete().eq("id", id);
+    if (error) return alert(error.message);
+
+    db.subcategories = db.subcategories.filter(s => s.id !== id);
+    loadCategoriesUI();
+    
+    updatePosSubCats();
+    updateInvSubCats();
+    updateModalSubCats();
+}
 
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
         
@@ -3776,27 +3920,46 @@ function renderProductLogs() {
     });
 }
 
-
-// VIEW BATCH ITEMS
+// VIEW BATCH ITEMS (Updated: Shows Total & Per Item Landed Cost)
 async function viewBatchDetails(ref) {
     // 1. Get Batch Header
     const batch = db.batches.find(b => b.batch_ref === ref);
     
-    // 2. Fetch Items from Stock Logs (using the Batch Ref)
-    // Note: We query the DB dynamically to ensure we get all items
+    // 2. Fetch Items from Stock Logs
     const { data: items } = await sb.from('stock_logs').select('*').eq('batch_id', ref);
 
     if(!batch || !items) return alert("Batch data not found");
 
+    // --- CALCULATION ---
+    const landedPerItem = (batch.total_qty > 0) 
+        ? (batch.total_cost / batch.total_qty).toFixed(2) 
+        : "0.00";
+
     // 3. Render Header
     document.getElementById('mb-title').innerText = `Batch: ${batch.batch_ref}`;
     document.getElementById('mb-header').innerHTML = `
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-            <div><strong>Supplier:</strong> ${batch.supplier}</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:13px;">
+            <div><strong>Supplier:</strong> ${batch.supplier || 'N/A'}</div>
             <div><strong>Date:</strong> ${new Date(batch.created_at).toLocaleString()}</div>
-            <div><strong>Total Qty:</strong> ${batch.total_qty}</div>
-            <div><strong>Total Cost:</strong> ৳${batch.total_cost}</div>
-            <div style="grid-column: span 2; margin-top:5px; color:#64748b;"><em>${batch.note || ''}</em></div>
+            <div style="grid-column: span 2; border-bottom:1px solid #e2e8f0; margin-bottom:5px;"></div>
+            
+            <div><strong>Total Items:</strong> ${batch.total_qty} pcs</div>
+            <div></div> <!-- Spacer -->
+
+            <!-- FINANCIALS ROW -->
+            <div style="background:#eff6ff; padding:8px; border-radius:6px; border:1px solid #dbeafe;">
+                <div style="font-size:10px; text-transform:uppercase; color:#1e40af; font-weight:bold;">Total Landed Cost</div>
+                <div style="font-size:16px; font-weight:800; color:#1e3a8a;">৳${batch.total_cost.toLocaleString()}</div>
+            </div>
+
+            <div style="background:#f0fdf4; padding:8px; border-radius:6px; border:1px solid #dcfce7;">
+                <div style="font-size:10px; text-transform:uppercase; color:#166534; font-weight:bold;">Landed / Item</div>
+                <div style="font-size:16px; font-weight:800; color:#14532d;">৳${landedPerItem}</div>
+            </div>
+
+            <div style="grid-column: span 2; margin-top:5px; color:#64748b; font-style:italic; font-size:12px;">
+                ${batch.note ? '📝 Note: ' + batch.note : ''}
+            </div>
         </div>
     `;
 
