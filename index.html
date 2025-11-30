@@ -1146,6 +1146,187 @@ input[type="number"]::-webkit-outer-spin-button {
     border-color: #334155 transparent transparent transparent;
 }
 
+/* --- NOTIFICATION SYSTEM CSS --- */
+
+/* 1. Floating Toast Container */
+#toast-container {
+    position: fixed;
+    top: 20px;
+    right: 30px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none; /* Let clicks pass through empty space */
+}
+
+.toast-msg {
+    background: var(--bg-surface);
+    border-left: 5px solid var(--primary);
+    padding: 15px 20px;
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-xl);
+    min-width: 300px;
+    font-weight: 500;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    animation: slideInRight 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+.toast-msg.success { border-color: var(--success); color: #065f46; }
+.toast-msg.error { border-color: var(--danger); color: #991b1b; }
+.toast-msg.warning { border-color: var(--warning); color: #9a3412; }
+
+@keyframes slideInRight {
+    from { opacity: 0; transform: translateX(100%); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fadeOutRight {
+    to { opacity: 0; transform: translateX(100%); }
+}
+
+/* 2. Header Bell Icon & Badge */
+.notif-wrapper {
+    position: relative;
+    margin-left: 10px;
+    cursor: pointer;
+}
+
+.btn-bell {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    transition: var(--transition);
+}
+
+.btn-bell:hover, .btn-bell.active {
+    background: var(--primary-light);
+    color: var(--primary);
+    border-color: var(--primary);
+}
+
+.notif-badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    background: var(--danger);
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+    height: 18px;
+    min-width: 18px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    border: 2px solid #fff;
+    display: none; /* Hidden if 0 */
+}
+
+/* 3. Notification Dropdown Panel */
+.notif-panel {
+    position: absolute;
+    top: 55px;
+    right: -10px;
+    width: 350px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-xl);
+    display: none; /* Hidden by default */
+    flex-direction: column;
+    z-index: 2000;
+    animation: slideDown 0.2s ease-out;
+    max-height: 80vh;
+}
+
+.notif-header {
+    padding: 15px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8fafc;
+    border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.notif-list {
+    overflow-y: auto;
+    max-height: 400px;
+    display: flex;
+    flex-direction: column;
+}
+
+.notif-item {
+    padding: 12px 15px;
+    border-bottom: 1px solid var(--border-light);
+    font-size: 13px;
+    display: flex;
+    gap: 10px;
+    transition: background 0.2s;
+}
+
+.notif-item:hover { background: var(--bg-body); }
+
+.notif-icon {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-top: 5px;
+    flex-shrink: 0;
+}
+.notif-icon.success { background: var(--success); }
+.notif-icon.error { background: var(--danger); }
+.notif-icon.info { background: var(--primary); }
+
+.notif-content { flex: 1; }
+.notif-time { font-size: 10px; color: var(--text-muted); margin-top: 4px; }
+
+/* Context Link Button inside Notifications */
+.notif-link {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 4px 10px;
+    background: var(--bg-body);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--primary);
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: fit-content;
+}
+
+.notif-link:hover {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.notif-link::after {
+    content: '→';
+    font-size: 10px;
+}
+
+
+
 @media print {
     body * {
         visibility: hidden;
@@ -1271,6 +1452,26 @@ input[type="number"]::-webkit-outer-spin-button {
              <button class="nav-item" onclick="nav('due-section')">Due List</button> 
             <button class="nav-item" onclick="nav('settings')">Settings</button>
         </div>
+
+           <!-- NEW: Notification Bell -->
+        <div class="notif-wrapper">
+            <button class="btn-bell" onclick="toggleNotifPanel()">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+            </button>
+            <div id="notif-badge" class="notif-badge">0</div>
+
+            <!-- The Dropdown Panel -->
+            <div id="notif-panel" class="notif-panel">
+                <div class="notif-header">
+                    <span style="font-weight:700;">Notifications</span>
+                    <button class="btn-sm btn-sec" onclick="clearAllNotifs()" style="font-size:10px;">Clear All</button>
+                </div>
+                <div id="notif-list" class="notif-list">
+                    <!-- Items go here -->
+                </div>
+            </div>
+        </div>
+    </div>
     </header>
 
     <main>
@@ -1815,6 +2016,9 @@ input[type="number"]::-webkit-outer-spin-button {
     <!-- Hidden Print Area -->
     <div id="print-area"></div>
 
+    <!-- Floating Toast Container -->
+    <div id="toast-container"></div>
+
     <script>
 /* --- 1. SUPABASE INIT --- */
 const SUPABASE_URL = 'https://kfmqrqhjhfmlvomzrzoj.supabase.co';
@@ -1823,7 +2027,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Global State
-let db = { products: [], transactions: [], settings: {}, categories: [], subcategories: [] };
+let db = { products: [], transactions: [], settings: {}, categories: [], subcategories: [], notifications: [] };
 let cart = [];
 let sortKey = 'name', sortAsc = true;
 let tempVariants = []; // Add this missing variable
@@ -1843,10 +2047,21 @@ window.onload = async () => {
 
 async function loadAllData() {
     console.log("Syncing with Supabase...");
+
+
+       // 1. FETCH NOTIFICATIONS
+    const { data: notifs } = await sb
+        .from('notifications')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50); // Fetch last 50
+    
+    db.notifications = notifs || [];
+    renderNotifBadge(); // Update badge count
     
     // 1. Fetch Products & Variants
     const { data: prods, error: pErr } = await sb.from('products').select(`*, variants(*)`); 
-    if(pErr) return alert("Error loading products: " + pErr.message);
+    if(pErr) return notify("Error loading products: " + pErr.message);
 
     db.products = prods.map(p => ({
         id: p.id,
@@ -2069,8 +2284,8 @@ function addVariantRow() {
     const qty = Number(document.getElementById('v-qty').value);
 
     // 2. Basic Validation
-    if(!uid) return alert("Enter Master UID first!");
-    if(qty <= 0) return alert("Enter Quantity");
+    if(!uid) return notify("Enter Master UID first!");
+    if(qty <= 0) return notify("Enter Quantity");
 
     // 3. Determine Display Names
     const dispColor = rawColor || "Std"; 
@@ -2217,8 +2432,8 @@ const buy_price = Number(document.getElementById('p-buy').value);
     const baseP = Number(document.getElementById('p-buy-base').value) || 0;
     const extraC = Number(document.getElementById('p-buy-extra').value) || 0;
 
-    if (!name || !sell_price) return alert("Name and Price required");
-    if (tempVariants.length === 0) return alert("Add at least one variant");
+    if (!name || !sell_price) return notify("Name and Price required");
+    if (tempVariants.length === 0) return notify("Add at least one variant");
 
     // 1. GENERATE BATCH REFERENCE
     const batchRef = "PO-" + Date.now().toString().slice(-6);
@@ -2303,16 +2518,16 @@ const buy_price = Number(document.getElementById('p-buy').value);
         // Navigate to the new Batch Tab to show user
         nav('history');
         switchTab('batches');
-        alert("✅ Stock Added & Batch Created: " + batchRef);
+       notify("Stock Added & Batch Created: " + batchRef, "success", "batch", batchRef);
 
     } catch (err) {
-        alert("❌ Error: " + err.message);
+        notify("❌ Error: " + err.message);
         console.error(err);
     }
 
     // --- SAFETY CHECK ---
 if (!isFinite(buy_price) || isNaN(buy_price)) {
-    return alert("❌ Error: Invalid Cost Calculation. Please check your Quantity and Prices.");
+    return notify("❌ Error: Invalid Cost Calculation. Please check your Quantity and Prices.");
 }
 }
 
@@ -2330,7 +2545,7 @@ async function delProd(id) {
         .delete()
         .eq("id", id);
 
-    if (prodErr) return alert("Delete failed: " + prodErr.message);
+    if (prodErr) return notify("Delete failed: " + prodErr.message);
 
     // Delete variants belonging to product
     await sb.from("variants").delete().eq("product_id", id);
@@ -2338,7 +2553,7 @@ async function delProd(id) {
     await loadAllData();
     renderInv();
 
-    alert("Product Deleted");
+    notify("Product Deleted");
 }
 
 
@@ -2432,14 +2647,14 @@ function selectVariant(prodId, vSku) {
 
 // Actual Cart Add Logic
 function pushToCart(prod, variant) {
-    if(variant.stock <= 0) return alert("Out of Stock!");
+    if(variant.stock <= 0) return notify("Out of Stock!");
 
     // Check if this specific VARIANT is in cart
     const ex = cart.find(c => c.sku === variant.sku);
     
     if(ex) {
         if(ex.qty < variant.stock) ex.qty++;
-        else alert("Stock Limit Reached");
+        else notify("Stock Limit Reached");
     } else {
         const globalDisc = Number(document.getElementById('c-disc-global').value) || 0;
         cart.push({
@@ -2619,7 +2834,7 @@ function updateDueCalc() {
 }
 
 async function processCheckout() {
-    if (cart.length === 0) return alert("Cart is Empty!");
+    if (cart.length === 0) return notify("Cart is Empty!");
 
     // --- 1. CALCULATE FINANCIALS & ITEMS ---
     let grossSub = 0, netTotal = 0;
@@ -2735,8 +2950,10 @@ async function processCheckout() {
             }
         }
 
-        // --- 5. FINALIZE & PRINT ---
-        alert("✅ Sale Completed Successfully!");
+    // Inside the try block, after success:
+// notify("Message", "type", "trx", "INV-123...")
+
+notify("Sale Completed Successfully!", "success", "trx", trxId);
         
         const printObj = {
             id: trxId,
@@ -2780,7 +2997,7 @@ async function processCheckout() {
 
     } catch (err) {
         console.error(err);
-        alert("❌ Error Processing Sale: " + err.message);
+        notify("❌ Error Processing Sale: " + err.message);
     }
 }
 
@@ -2846,7 +3063,7 @@ async function submitDuePayment() {
     if(!selectedDueTrx) return;
     
     const payAmt = Number(document.getElementById('pay-due-input').value);
-    if(payAmt <= 0 || payAmt > selectedDueTrx.due_amount) return alert("Invalid Amount");
+    if(payAmt <= 0 || payAmt > selectedDueTrx.due_amount) return notify("Invalid Amount");
 
     const newPaid = Number(selectedDueTrx.paid_amount) + payAmt;
     const newDue = Number(selectedDueTrx.due_amount) - payAmt;
@@ -2866,7 +3083,7 @@ async function submitDuePayment() {
             note: "Due Collection"
         });
 
-        alert("Payment Recorded!");
+       notify("Payment Recorded", "success", "trx", selectedDueTrx.id);
         
         // Refresh Data
         await loadAllData();
@@ -2875,7 +3092,7 @@ async function submitDuePayment() {
         selectedDueTrx = null;
 
     } catch(err) {
-        alert("Error: " + err.message);
+        notify("Error: " + err.message);
     }
 }
 
@@ -2914,7 +3131,7 @@ function viewTrx(id) {
     
     if (!t) {
         console.error("Transaction ID not found:", id);
-        return alert("Error: Transaction not found in database.");
+        return notify("Error: Transaction not found in database.");
     }
 
     // --- NEW: Handle Due/Paid Variables with Fallbacks for old data ---
@@ -3044,12 +3261,12 @@ function viewTrx(id) {
 
     // 1. Find Data locally
     const trx = db.transactions.find(t => t.id === trxId);
-    if (!trx) return alert("Transaction not found. Please refresh.");
+    if (!trx) return notify("Transaction not found. Please refresh.");
     
     const item = trx.items[itemIdx];
     
     // Prevent double returns on the same item
-    if (item.isReturned) return alert("Item already returned!");
+    if (item.isReturned) return notify("Item already returned!");
 
     try {
         const returnId = "RET-" + Date.now().toString().slice(-6);
@@ -3123,7 +3340,7 @@ function viewTrx(id) {
         if(itemErr) throw new Error("Item Error: " + itemErr.message);
 
         // --- F. FINISH ---
-        alert("✅ Return Processed & Logged!");
+      notify("Return Processed Successfully", "success", "trx", returnId);
         closeModal('modal-trx');
         await loadAllData(); 
         renderHistory();
@@ -3131,7 +3348,7 @@ function viewTrx(id) {
 
     } catch (err) {
         console.error(err);
-        alert("❌ Error: " + err.message);
+        notify("❌ Error: " + err.message);
     }
 }
         /* --- 5. DASHBOARD LOGIC --- */
@@ -3346,8 +3563,8 @@ async function saveSettings() {
     };
     
     const { error } = await sb.from('settings').upsert({id: 1, ...s});
-    if(error) alert("Error saving settings");
-    else alert("Settings saved to cloud");
+    if(error) notify("Error saving settings");
+    else notify("Settings saved to cloud", "success"); // No context needed here
 }
 
         function printReceiptById(id) {
@@ -3438,6 +3655,8 @@ async function saveSettings() {
             </div>
         </div>
     `;
+
+
     
     document.getElementById('print-area').innerHTML = html;
     window.print();
@@ -3501,7 +3720,7 @@ function calcLandedCost() {
                     db = JSON.parse(e.target.result);
                     save();
                     location.reload();
-                } catch(err) { alert("Invalid File"); }
+                } catch(err) { notify("Invalid File"); }
             };
             reader.readAsText(input.files[0]);
         }
@@ -3549,12 +3768,12 @@ async function factoryReset() {
         if (e6) throw new Error("Error clearing Products: " + e6.message);
 
         // --- STEP 3: Success & Reload ---
-        alert("✅ System Reset Successful!\n\n- Products: Cleared\n- History: Cleared\n- Settings: SAVED\n- Categories: SAVED");
+        notify("✅ System Reset Successful!\n\n- Products: Cleared\n- History: Cleared\n- Settings: SAVED\n- Categories: SAVED");
         location.reload();
 
     } catch (err) {
         console.error(err);
-        alert("❌ Reset Failed: " + err.message);
+        notify("❌ Reset Failed: " + err.message);
         // Restore button state
         const btn = event.target;
         if(btn) {
@@ -3711,10 +3930,10 @@ function loadCategoriesUI() {
 async function addCategory() {
     const input = document.getElementById("new-cat");
     const name = input.value.trim();
-    if (!name) return alert("Enter category name");
+    if (!name) return notify("Enter category name");
 
     const { data, error } = await sb.from("categories").insert({name}).select().single();
-    if (error) return alert(error.message);
+    if (error) return notify(error.message);
 
     db.categories.push(data);
     input.value = "";
@@ -3727,7 +3946,7 @@ async function addCategory() {
 async function delCategory(id) {
     if(!confirm("Delete Category? This will delete all subcategories inside it.")) return;
     const { error } = await sb.from("categories").delete().eq("id", id);
-    if (error) return alert(error.message);
+    if (error) return notify(error.message);
 
     db.categories = db.categories.filter(c => c.id !== id);
     // Remove related subcategories locally
@@ -3748,7 +3967,7 @@ async function addSubCategory(catId) {
         name: name
     }).select().single();
 
-    if (error) return alert(error.message);
+    if (error) return notify(error.message);
 
     db.subcategories.push(data);
     loadCategoriesUI();
@@ -3763,7 +3982,7 @@ async function addSubCategory(catId) {
 async function delSubCategory(id) {
     if(!confirm("Delete subcategory?")) return;
     const { error } = await sb.from("subcategories").delete().eq("id", id);
-    if (error) return alert(error.message);
+    if (error) return notify(error.message);
 
     db.subcategories = db.subcategories.filter(s => s.id !== id);
     loadCategoriesUI();
@@ -3928,7 +4147,7 @@ async function viewBatchDetails(ref) {
     // 2. Fetch Items from Stock Logs
     const { data: items } = await sb.from('stock_logs').select('*').eq('batch_id', ref);
 
-    if(!batch || !items) return alert("Batch data not found");
+    if(!batch || !items) return notify("Batch data not found");
 
     // --- CALCULATION ---
     const landedPerItem = (batch.total_qty > 0) 
@@ -3997,13 +4216,233 @@ async function saveBatchEdit() {
         .update({ supplier: sup, note: note })
         .eq('id', id);
 
-    if(error) return alert("Error: " + error.message);
+    if(error) return notify("Error: " + error.message);
 
-    alert("Batch Info Updated");
+    notify("Batch Info Updated");
     closeModal('modal-batch-edit');
     await loadAllData();
     renderBatchLogs();
 }
+
+
+/* --- NOTIFICATION SYSTEM LOGIC --- */
+
+// 1. The Main Function: Triggers floating toast AND saves to DB
+/* Updated Notify Function */
+async function notify(msg, type = 'info', contextType = null, contextId = null) {
+    // 1. Show Floating Toast (Visual only)
+    showFloatingToast(msg, type);
+
+    // 2. Save to Database with Context
+    try {
+        const payload = {
+            message: msg, 
+            type: type,
+            context_type: contextType, // New field
+            context_id: contextId      // New field
+        };
+
+        const { error } = await sb.from('notifications').insert(payload);
+        
+        if(!error) {
+            // Refresh list in background
+            fetchNotifications();
+        }
+    } catch(err) { console.error("Notif save error", err); }
+}
+
+// Helper to refresh notifications separately from full load
+async function fetchNotifications() {
+    const { data } = await sb
+        .from('notifications')
+        .select('*')
+        .order('created_at', {ascending:false})
+        .limit(50);
+    db.notifications = data || [];
+    renderNotifBadge();
+    if(document.getElementById('notif-panel').style.display === 'flex') {
+        renderNotifList();
+    }
+}
+
+
+/* --- NOTIFICATION ACTION ROUTER --- */
+async function openContext(type, id) {
+    // Hide panel after clicking
+    document.getElementById('notif-panel').style.display = 'none';
+    document.querySelector('.btn-bell').classList.remove('active');
+
+    console.log("Opening context:", type, id);
+
+    if (type === 'trx') {
+        // 1. Transactions: Ensure History is loaded, then open modal
+        nav('history'); 
+        switchTab('trans');
+        viewTrx(id); 
+    } 
+    else if (type === 'batch') {
+        // 2. Batches: Go to Batch tab, then open detail
+        nav('history');
+        switchTab('batches');
+        viewBatchDetails(id);
+    }
+    else if (type === 'product') {
+        // 3. Product: Open Edit Modal
+        // Note: ID for products is usually an Integer (int8) in DB, ensure type safety
+        const prod = db.products.find(p => p.id == id); // loose check for string/int
+        if(prod) {
+            editProd(prod.id);
+        } else {
+            alert("Product not found (might be deleted)");
+        }
+    }
+    else if (type === 'due') {
+        // 4. Due Payment: Go to Due Section
+        nav('due-section');
+        // Optional: Auto-search for that customer/invoice
+        document.getElementById('due-search').value = id;
+        renderDueList();
+        selectDue(id);
+    }
+}
+
+
+
+// 2. Render the Floating UI
+function showFloatingToast(msg, type) {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    
+    // Icon selection
+    let icon = 'ℹ️';
+    if(type === 'success') icon = '✅';
+    if(type === 'error') icon = '⚠️';
+    
+    toast.className = `toast-msg ${type}`;
+    toast.innerHTML = `
+        <div style="display:flex; gap:10px; align-items:center;">
+            <span style="font-size:18px;">${icon}</span>
+            <span>${msg}</span>
+        </div>
+        <button onclick="this.parentElement.remove()" style="background:none; border:none; cursor:pointer; font-size:16px; opacity:0.6;">&times;</button>
+    `;
+    
+    container.appendChild(toast);
+
+    // Auto remove after 4 seconds
+    setTimeout(() => {
+        toast.style.animation = 'fadeOutRight 0.5s forwards';
+        setTimeout(() => toast.remove(), 500);
+    }, 4000);
+}
+
+// 3. Toggle Panel Visibility
+function toggleNotifPanel() {
+    const panel = document.getElementById('notif-panel');
+    const btn = document.querySelector('.btn-bell');
+    
+    if(panel.style.display === 'flex') {
+        panel.style.display = 'none';
+        btn.classList.remove('active');
+    } else {
+        panel.style.display = 'flex';
+        btn.classList.add('active');
+        renderNotifList();
+    }
+}
+
+// 4. Render the List inside the Panel
+function renderNotifList() {
+    const list = document.getElementById('notif-list');
+    list.innerHTML = "";
+    
+    if(db.notifications.length === 0) {
+        list.innerHTML = `<div style="padding:20px; text-align:center; color:var(--text-muted);">No notifications</div>`;
+        return;
+    }
+
+    db.notifications.forEach(n => {
+        const time = new Date(n.created_at).toLocaleString();
+        
+        // Generate Link HTML if context exists
+        let actionHtml = '';
+        if (n.context_type && n.context_id) {
+            let label = "View Details";
+            if(n.context_type === 'trx') label = `View Bill #${n.context_id}`;
+            if(n.context_type === 'batch') label = `View Batch ${n.context_id}`;
+            if(n.context_type === 'product') label = `Edit Product`;
+            if(n.context_type === 'due') label = `Collect Due`;
+
+            actionHtml = `
+                <div class="notif-link" onclick="openContext('${n.context_type}', '${n.context_id}')">
+                    ${label}
+                </div>
+            `;
+        }
+
+        list.innerHTML += `
+            <div class="notif-item">
+                <div class="notif-icon ${n.type}"></div>
+                <div class="notif-content">
+                    <div style="font-weight:500; color:var(--text-main); margin-bottom:2px;">${n.message}</div>
+                    ${actionHtml} <!-- Insert Link Here -->
+                    <div class="notif-time">${time}</div>
+                </div>
+            </div>
+        `;
+    });
+}
+// 5. Update the Red Badge
+function renderNotifBadge() {
+    const badge = document.getElementById('notif-badge');
+    const count = db.notifications.length;
+    
+    if(count > 0) {
+        badge.style.display = 'flex';
+        badge.innerText = count > 9 ? '9+' : count;
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+// 6. Clear All
+async function clearAllNotifs() {
+    if(!confirm("Clear notification history?")) return;
+    
+    // We physically delete them from DB to keep it clean, 
+    // or you could update a 'read' column if you prefer.
+    const { error } = await sb.from('notifications').delete().neq('id', 0); // Delete all
+    
+    if(error) {
+        notify("Error clearing history", "error");
+    } else {
+        db.notifications = [];
+        renderNotifBadge();
+        renderNotifList();
+        showFloatingToast("History Cleared", "success");
+    }
+
+}
+
+/* --- FIXED: CLICK OUTSIDE TO CLOSE --- */
+window.addEventListener('click', function(event) {
+    const panel = document.getElementById('notif-panel');
+    const btn = document.querySelector('.btn-bell');
+
+    // 1. Only run if the panel is actually OPEN
+    if (panel && panel.style.display === 'flex') {
+        
+        // 2. Check if the click happened INSIDE the notification area
+        // .closest() looks up the tree to see if the clicked element is inside '.notif-wrapper'
+        const clickedInside = event.target.closest('.notif-wrapper');
+
+        // 3. If the click was NOT inside, close the panel
+        if (!clickedInside) {
+            panel.style.display = 'none';
+            if (btn) btn.classList.remove('active');
+        }
+    }
+});
 
 
     </script>
